@@ -124,7 +124,7 @@ const List<DashboardWidget> defaultDashboardWidgets = [
 
 /// A phone starts without the VPN switch and the diagnostic cards, which stay
 /// addable. The field default keeps the shared list because it must be const.
-final List<DashboardWidget> platformDefaultDashboardWidgets = system.isAndroid
+final List<DashboardWidget> platformDefaultDashboardWidgets = system.isMobile
     ? const [
         DashboardWidget.currentOutbound,
         DashboardWidget.networkSpeed,

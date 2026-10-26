@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -14,16 +15,42 @@ class AppPath {
   Completer<Directory> cacheDir = Completer();
 
   @visibleForTesting
-  static Future<Directory> Function() supportDirectory =
-      getApplicationSupportDirectory;
+  static Future<Directory> Function() supportDirectory = _supportDirectory;
 
   @visibleForTesting
-  static Future<Directory> Function() temporaryDirectory =
-      getTemporaryDirectory;
+  static Future<Directory> Function() temporaryDirectory = _temporaryDirectory;
 
   @visibleForTesting
-  static Future<Directory> Function() cacheDirectory =
-      getApplicationCacheDirectory;
+  static Future<Directory> Function() cacheDirectory = _cacheDirectory;
+
+  static Future<Directory> _supportDirectory() async {
+    if (!Platform.isIOS) {
+      return getApplicationSupportDirectory();
+    }
+    final path = await const MethodChannel(
+      '$packageName/service',
+    ).invokeMethod<String>('getSharedDirectory');
+    if (path == null || path.isEmpty) {
+      throw StateError('The iOS App Group directory is unavailable');
+    }
+    return Directory(path);
+  }
+
+  static Future<Directory> _temporaryDirectory() async {
+    if (!Platform.isIOS) {
+      return getTemporaryDirectory();
+    }
+    final support = await _supportDirectory();
+    return Directory(join(support.path, 'tmp')).create(recursive: true);
+  }
+
+  static Future<Directory> _cacheDirectory() async {
+    if (!Platform.isIOS) {
+      return getApplicationCacheDirectory();
+    }
+    final support = await _supportDirectory();
+    return Directory(join(support.path, 'cache')).create(recursive: true);
+  }
 
   @visibleForTesting
   static Future<Directory?> Function() downloadDirectory =

@@ -124,6 +124,15 @@ void main() {
     }
   });
 
+  testWidgets('iOS exposes supported VPN settings', (tester) async {
+    await pumpItem(tester, const VpnSections(isIOS: true));
+    expect(find.byType(VPNItem), findsOneWidget);
+    expect(find.byType(VpnSystemProxyItem), findsOneWidget);
+    expect(find.byType(Ipv6Item), findsOneWidget);
+    expect(find.byType(DNSHijackingItem), findsOneWidget);
+    expect(find.byType(AllowBypassItem), findsNothing);
+  });
+
   group('option pickers', () {
     testWidgets('the stack picker writes the chosen tun stack', (tester) async {
       await pumpItem(tester, const TunStackItem());

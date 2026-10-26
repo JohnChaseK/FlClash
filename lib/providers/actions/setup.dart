@@ -763,7 +763,7 @@ class SetupAction extends _$SetupAction {
     _appliedInputs = null;
     globalState.lastConfigMd5 = null;
     globalState.lastConfigCounts = null;
-    if (system.isAndroid) {
+    if (system.isMobile) {
       await ref.read(vpnOptionsProvider.future);
       await preferences.saveShareState(ref.read(sharedStateProvider));
       await preferences.saveAppliedConfigMd5(null);
@@ -802,7 +802,7 @@ class SetupAction extends _$SetupAction {
         globalState.lastConfigCounts =
             realProfile?.counts ?? configCountsOf(const {});
         _appliedInputs = inputs;
-        if (system.isAndroid) {
+        if (system.isMobile) {
           await preferences.saveAppliedConfigMd5(yamlMd5);
         }
         await onUpdated?.call();

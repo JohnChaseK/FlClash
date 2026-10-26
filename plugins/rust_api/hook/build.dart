@@ -11,9 +11,31 @@ void main(List<String> args) async {
     }
     await FlutterRustBridgeNativeAssetsBuilder(
       cratePath: 'rust',
-      extraCargoEnvironmentVariables: _bindgenEnvironment(input),
+      extraCargoEnvironmentVariables: await _buildEnvironment(input),
     ).run(input: input, output: output);
   });
+}
+
+Future<Map<String, String>> _buildEnvironment(BuildInput input) async {
+  if (input.config.buildCodeAssets && input.config.code.targetOS == OS.iOS) {
+    final config = input.config.code.iOS;
+    final sdk = config.targetSdk == IOSSdk.iPhoneOS
+        ? 'iphoneos'
+        : 'iphonesimulator';
+    final result = await Process.run('xcrun', [
+      '--sdk',
+      sdk,
+      '--show-sdk-path',
+    ]);
+    if (result.exitCode != 0) {
+      throw StateError('Could not locate the $sdk SDK: ${result.stderr}');
+    }
+    return {
+      'SDKROOT': (result.stdout as String).trim(),
+      'IPHONEOS_DEPLOYMENT_TARGET': '${config.targetVersion}.0',
+    };
+  }
+  return _bindgenEnvironment(input);
 }
 
 // rquickjs runs bindgen on Android, which must load the NDK's libclang; Linux

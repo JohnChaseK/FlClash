@@ -31,7 +31,11 @@ func handleInitClash(params *InitParams) bool {
 	sdkVersion.Store(int32(params.Version))
 	constant.SetHomeDir(params.HomeDir)
 	initOwnership(params.HomeDir)
-	clearSpilledResponses()
+	// iOS hands ownership between two processes while Flutter may still be
+	// reading a reply from the previous owner. The host prunes abandoned files.
+	if runtime.GOOS != "ios" {
+		clearSpilledResponses()
+	}
 	isInit.Store(true)
 	return true
 }
@@ -82,7 +86,7 @@ func updateListeners(cfg *config.Config) {
 	listener.ReCreateShadowSocks(general.ShadowSocksConfig, tunnel.Tunnel)
 	listener.ReCreateVmess(general.VmessConfig, tunnel.Tunnel)
 	listener.ReCreateTuic(general.TuicServer, tunnel.Tunnel)
-	if !features.Android {
+	if !features.Android && runtime.GOOS != "ios" {
 		listener.ReCreateTun(general.Tun, tunnel.Tunnel)
 	}
 }

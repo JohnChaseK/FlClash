@@ -17,6 +17,19 @@ dart setup.dart windows
 dart setup.dart android
 ```
 
+iOS builds the gomobile XCFramework and embeds the packet tunnel extension:
+
+```bash
+./tool/build_ios_unsigned.sh
+```
+
+The unsigned IPA lands in `build/ios/ipa/FlClash-unsigned.ipa`. Standard device
+installation requires signing Runner and PacketTunnel with their Network
+Extension and App Group entitlements. For a device already running TrollStore,
+prepare the separate package with `./tool/package_ios_trollstore.sh`; it embeds
+the required entitlements without an Apple certificate or provisioning profile.
+See `ios/README.md` for installation and device validation requirements.
+
 The desktop Go core and the Rust helper build automatically: Flutter runs
 `plugins/setup/hook/build.dart` on every `flutter build` and `flutter test`,
 and the hook drives `CoreBuilder` from the `setup_hooks` package in

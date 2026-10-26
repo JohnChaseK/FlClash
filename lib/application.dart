@@ -22,6 +22,7 @@ import 'pages/pages.dart';
 
 Widget buildManagerStack({
   required bool isDesktop,
+  bool isIOS = false,
   required Future<void> Function(List<ConnectivityResult> results)
   onConnectivityChanged,
   Stream<ProcessSignal>? terminateSignals,
@@ -45,6 +46,8 @@ Widget buildManagerStack({
             child: HotKeyManager(child: ProxyManager(child: state)),
           ),
         )
+      : isIOS
+      ? IOSManager(child: state)
       : AndroidManager(child: TileManager(child: state));
   return AppEnvManager(
     child: LocaleManager(
@@ -168,6 +171,7 @@ class ApplicationState extends ConsumerState<Application> {
             return ThemeCrossFade(
               child: buildManagerStack(
                 isDesktop: system.isDesktop,
+                isIOS: system.isIOS,
                 onConnectivityChanged: _handleConnectivityChanged,
                 terminateSignals: _terminateSignals,
                 child: RemoteFocusAdapter(

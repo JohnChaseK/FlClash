@@ -17,6 +17,7 @@ Widget? _childOf(Widget widget) {
     HotKeyManager(:final child) => child,
     ProxyManager(:final child) => child,
     AndroidManager(:final child) => child,
+    IOSManager(:final child) => child,
     TileManager(:final child) => child,
     AppStateManager(:final child) => child,
     CoreManager(:final child) => child,
@@ -103,6 +104,27 @@ void main() {
         ),
       ),
     );
+  });
+
+  test('iOS uses its VPN observer without Android service managers', () {
+    final stack = buildManagerStack(
+      isDesktop: false,
+      isIOS: true,
+      onConnectivityChanged: (_) async {},
+      child: _leaf,
+    );
+    expect(_chainFrom(stack), [
+      AppEnvManager,
+      LocaleManager,
+      StatusManager,
+      ThemeManager,
+      IOSManager,
+      AppStateManager,
+      CoreManager,
+      ConnectivityManager,
+      VpnManager,
+    ]);
+    expect(_innermostChildOf(stack), same(_leaf));
   });
 
   test('mobile-only managers never appear on desktop', () {
