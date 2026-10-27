@@ -44,6 +44,24 @@ class _IOSManagerState extends ConsumerState<IOSManager> with ServiceListener {
   }
 
   @override
+  void onServiceState(DateTime? startTime, VpnOptions? options) {
+    final mobileService = service;
+    final revision = mobileService?.commandRevision;
+    unawaited(
+      ref
+          .read(setupActionProvider.notifier)
+          .syncServiceState(
+            startTime,
+            options,
+            isCurrent: () => mobileService?.commandRevision == revision,
+          ),
+    );
+    if (startTime != null) {
+      ref.read(proxiesActionProvider.notifier).updateGroupsDebounce();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) => widget.child;
 
   @override

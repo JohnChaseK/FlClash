@@ -28,7 +28,7 @@ void main() {
 
   tearDown(() => container.dispose());
 
-  Future<void> pumpGeneralView(WidgetTester tester) async {
+  Future<void> pumpGeneralView(WidgetTester tester, {bool? isIOS}) async {
     tester.view.physicalSize = const Size(1000, 3000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -37,13 +37,33 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const TestApp(child: GeneralView()),
+        child: TestApp(child: GeneralView(isIOS: isIOS)),
       ),
     );
     await tester.pumpAndSettle();
   }
 
   PatchClashConfig config() => container.read(patchClashConfigProvider);
+
+  testWidgets(
+    'iOS hides unsupported on-demand settings and their description',
+    (tester) async {
+      await pumpGeneralView(tester, isIOS: true);
+      final l = currentAppLocalizations;
+
+      expect(find.text(l.onDemand), findsNothing);
+      expect(find.textContaining(l.onDemandDesc), findsNothing);
+      expect(find.text(l.autoRun), findsOneWidget);
+    },
+  );
+
+  testWidgets('supported platforms retain on-demand settings', (tester) async {
+    await pumpGeneralView(tester, isIOS: false);
+    final l = currentAppLocalizations;
+
+    expect(find.text(l.onDemand), findsOneWidget);
+    expect(find.textContaining(l.onDemandDesc), findsOneWidget);
+  });
 
   testWidgets('lists no override until one is added', (tester) async {
     await pumpGeneralView(tester);

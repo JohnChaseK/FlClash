@@ -170,6 +170,31 @@ class SetupAction extends _$SetupAction {
     return _run(running, initialize: running && initialize);
   }
 
+  Future<void> syncServiceState(
+    DateTime? startTime,
+    VpnOptions? options, {
+    bool Function()? isCurrent,
+  }) {
+    final observedRequest = _latestRunRequest;
+    return _listenerScheduler.run(() async {
+      if (!ref.mounted ||
+          !identical(observedRequest, _latestRunRequest) ||
+          isCurrent?.call() == false ||
+          (_startTime == startTime &&
+              ref.read(runningVpnOptionsProvider) == options)) {
+        return;
+      }
+      _latestRunRequest = null;
+      _startTime = startTime;
+      _setLocalRunning(startTime != null);
+      ref.read(runningVpnOptionsProvider.notifier).value = options;
+      if (startTime == null) {
+        ref.read(trafficsProvider.notifier).clear();
+        ref.read(totalTrafficProvider.notifier).value = const Traffic();
+      }
+    });
+  }
+
   Future<bool> _run(
     bool running, {
     required bool initialize,
@@ -257,16 +282,18 @@ class SetupAction extends _$SetupAction {
       if (ref.read(safeModeProvider)) {
         return true;
       }
-      return _setListening(request.running);
+      return _setListening(request.running, request: request);
     });
   }
 
-  Future<bool> _setListening(bool running) async {
+  Future<bool> _setListening(bool running, {_RunRequest? request}) async {
     final vpnOptions = await ref.read(vpnOptionsProvider.future);
     final answered = await setCoreRunning(running);
-    ref.read(runningVpnOptionsProvider.notifier).value = running && answered
-        ? vpnOptions
-        : null;
+    if (request == null || _isCurrent(request)) {
+      ref.read(runningVpnOptionsProvider.notifier).value = running && answered
+          ? vpnOptions
+          : null;
+    }
     return answered;
   }
 

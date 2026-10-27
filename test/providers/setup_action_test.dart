@@ -187,6 +187,96 @@ void main() {
     container.read(initProvider.notifier).value = true;
   }
 
+  group('system VPN state synchronization', () {
+    test('adopts an existing run without issuing a start command', () async {
+      markInitialized();
+      final startTime = DateTime.now().subtract(const Duration(minutes: 2));
+      final options = await container.read(vpnOptionsProvider.future);
+
+      await action.syncServiceState(startTime, options);
+
+      expect(container.read(isStartProvider), isTrue);
+      expect(container.read(runTimeProvider), greaterThanOrEqualTo(120000));
+      expect(container.read(runningVpnOptionsProvider), options);
+      expect(action.coreRunningCalls, isEmpty);
+      expect(action.applyProfileCalls, 0);
+    });
+
+    test(
+      'mirrors a system stop without issuing another stop command',
+      () async {
+        markInitialized();
+        await action.syncServiceState(DateTime.now(), null);
+
+        await action.syncServiceState(null, null);
+
+        expect(container.read(isStartProvider), isFalse);
+        expect(container.read(runningVpnOptionsProvider), isNull);
+        expect(action.coreRunningCalls, isEmpty);
+      },
+    );
+
+    test('an older in-flight start cannot overwrite a system stop', () async {
+      markInitialized();
+      action.blockCoreCalls = true;
+      final starting = action.setRunning(true);
+      while (action.pendingCoreCalls.isEmpty) {
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      final observation = action.syncServiceState(null, null);
+      action.pendingCoreCalls.single.complete();
+      await starting;
+      await observation;
+
+      expect(container.read(isStartProvider), isFalse);
+      expect(container.read(runningVpnOptionsProvider), isNull);
+    });
+
+    test(
+      'drops a report superseded while a native command was pending',
+      () async {
+        markInitialized();
+        action.blockCoreCalls = true;
+        final starting = action.setRunning(true);
+        while (action.pendingCoreCalls.isEmpty) {
+          await Future<void>.delayed(Duration.zero);
+        }
+        var revision = 0;
+        final observation = action.syncServiceState(
+          null,
+          null,
+          isCurrent: () => revision == 0,
+        );
+
+        revision++;
+        action.pendingCoreCalls.single.complete();
+        await Future.wait([starting, observation]);
+
+        expect(container.read(isStartProvider), isTrue);
+        expect(container.read(runningVpnOptionsProvider), isNotNull);
+      },
+    );
+
+    test('a queued report cannot cancel a newer Flutter start', () async {
+      markInitialized();
+      action.blockCoreCalls = true;
+      final first = action.setRunning(true);
+      while (action.pendingCoreCalls.isEmpty) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      final observation = action.syncServiceState(null, null);
+      final latest = action.setRunning(true);
+
+      action.blockCoreCalls = false;
+      action.pendingCoreCalls.single.complete();
+      await Future.wait([first, observation, latest]);
+
+      expect(container.read(isStartProvider), isTrue);
+      expect(action.coreRunningCalls, [true, true]);
+    });
+  });
+
   group('setRunning gating', () {
     test('ignores a start request before initialization completes', () async {
       await container.read(setupActionProvider.notifier).setRunning(true);

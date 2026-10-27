@@ -2,10 +2,14 @@ import Darwin
 import NetworkExtension
 
 enum TunnelNetworkSettings {
+    static func mtu(for options: [String: Any]) -> Int {
+        let requested = options["mtu"] as? Int ?? 0
+        return requested > 0 ? min(max(requested, 1280), 1500) : 1500
+    }
+
     static func make(_ options: [String: Any]) throws -> NEPacketTunnelNetworkSettings {
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
-        let mtu = options["mtu"] as? Int ?? 0
-        settings.mtu = NSNumber(value: mtu > 0 ? mtu : 1500)
+        settings.mtu = NSNumber(value: mtu(for: options))
         let routes = options["routeAddress"] as? [String] ?? []
         let ipv4 = NEIPv4Settings(addresses: ["198.18.0.1"], subnetMasks: ["255.255.255.252"])
         ipv4.includedRoutes = try routes.filter { !$0.contains(":") }.map(ipv4Route)

@@ -6,6 +6,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     private let requests = DispatchQueue(label: "com.follow.clash.tunnel.requests")
     private var generation = 0
     private var lifecycle: Task<Void, Never>?
+    private var coreLease: CoreLease?
+    private var activeOptions: Data?
 
     override func startTunnel(
         options: [String: NSObject]?, completionHandler: @escaping (Error?) -> Void
@@ -29,13 +31,11 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     @MainActor
     private func start(current: Int, completionHandler: @escaping (Error?) -> Void) async {
         do {
-            let snapshot = try TunnelStorage.load()
-            let initialization = try JSONSerialization.jsonObject(with: snapshot.initialization)
-            let setup = try JSONSerialization.jsonObject(with: snapshot.setup)
-            let vpn = try JSONSerialization.jsonObject(with: snapshot.options) as? [String: Any] ?? [:]
-            try await CoreBridge.checked("initClash", arguments: initialization)
+            coreLease = try await CoreLease.acquire(directory: TunnelStorage.root())
             guard generation == current else { throw CancellationError() }
-            try await CoreBridge.checked("setupConfig", arguments: setup)
+            let snapshot = try TunnelStorage.load()
+            let vpn = try JSONSerialization.jsonObject(with: snapshot.options) as? [String: Any] ?? [:]
+            try await snapshot.restoreCore()
             guard generation == current else { throw CancellationError() }
             let settings = try TunnelNetworkSettings.make(vpn)
             try await setTunnelNetworkSettings(settings)
@@ -44,9 +44,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             let addresses =
                 (vpn["ipv6"] as? Bool ?? false)
                 ? "198.18.0.1/30,fdfe:dcba:9876::1/126" : "198.18.0.1/30"
-            let mtu = vpn["mtu"] as? Int ?? 0
             let tunOptions = try JSONSerialization.data(withJSONObject: [
-                "mtu": mtu > 0 ? mtu : 1500,
+                "mtu": TunnelNetworkSettings.mtu(for: vpn),
                 "congestion-controller": vpn["congestionController"] as? String ?? "",
             ])
             let dns = (vpn["dnsHijacking"] as? Bool ?? true) ? "0.0.0.0,::" : "198.18.0.2"
@@ -56,10 +55,11 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                     String(decoding: tunOptions, as: UTF8.self)
                 )
             else { throw TunnelError.message("The Core could not open the packet tunnel") }
+            activeOptions = snapshot.options
             completionHandler(nil)
         } catch {
             AppleStopTun()
-            try? await CoreBridge.checked("shutdown")
+            await shutdownCore()
             completionHandler(error)
         }
     }
@@ -74,9 +74,21 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                 await previous?.value
                 AppleSuspendEvents()
                 AppleStopTun()
-                try? await CoreBridge.checked("shutdown")
+                await shutdownCore()
                 completionHandler()
             }
+        }
+    }
+
+    @MainActor
+    private func shutdownCore() async {
+        guard coreLease != nil else { return }
+        do {
+            try await CoreBridge.checked("shutdown")
+            coreLease = nil
+            activeOptions = nil
+        } catch {
+            NSLog("FlClash: could not shut down the tunnel Core: %@", error.localizedDescription)
         }
     }
 
@@ -101,6 +113,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                 case "suspendEvents":
                     AppleSuspendEvents()
                     completionHandler?(Data())
+                case "options":
+                    Task { @MainActor in completionHandler?(self.activeOptions) }
                 default:
                     throw TunnelError.message("Unknown tunnel command")
                 }
@@ -111,15 +125,20 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     }
 
     private func tunnelDescriptor() throws -> Int32 {
-        // sing-tun consumes the utun descriptor. NetworkExtension exposes no
-        // public descriptor API; keep this compatibility dependency isolated.
-        guard let descriptor = packetFlow.value(forKeyPath: "socket.fileDescriptor") as? Int32,
-            descriptor >= 0
-        else {
-            throw TunnelError.message("iOS did not expose a packet tunnel descriptor")
+        let raw = packetFlow.value(forKeyPath: "socket.fileDescriptor")
+        var preferred: Int32?
+        if let value = raw as? Int32 {
+            preferred = value
+        } else if let value = raw as? Int {
+            preferred = Int32(exactly: value)
+        } else if let value = raw as? NSNumber {
+            preferred = value.int32Value
+        } else {
+            preferred = nil
         }
-        let owned = dup(descriptor)
-        guard owned >= 0 else { throw TunnelError.message("Could not duplicate the tunnel descriptor") }
-        return owned
+        return try TunnelDescriptor.duplicate(
+            preferred: preferred,
+            address: "198.18.0.1"
+        )
     }
 }

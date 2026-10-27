@@ -27,6 +27,15 @@ class _RecordingStopListener with ServiceListener {
   void onServiceStopped() => stops++;
 }
 
+class _RecordingStateListener with ServiceListener {
+  final states = <(DateTime?, VpnOptions?)>[];
+
+  @override
+  void onServiceState(DateTime? startTime, VpnOptions? options) {
+    states.add((startTime, options));
+  }
+}
+
 class _ThrowingListener with ServiceListener {
   var called = false;
 
@@ -266,6 +275,83 @@ void main() {
 
       mockChannel((_) async => null);
       expect(await Service().getRunTime(), isNull);
+    });
+  });
+
+  group('iOS system VPN state', () {
+    late _RecordingStateListener listener;
+
+    Future<void> report(int revision, int stamp, {VpnOptions? options}) async {
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            channelName,
+            codec.encodeMethodCall(
+              MethodCall('vpnState', {
+                'revision': revision,
+                'startTime': stamp,
+                'vpnOptions': options == null ? null : json.encode(options),
+              }),
+            ),
+            null,
+          );
+    }
+
+    setUp(() {
+      mockChannel((_) async => true);
+      listener = _RecordingStateListener();
+      Service().addListener(listener);
+    });
+
+    tearDown(() => Service().removeListener(listener));
+
+    test('adopts a system start after Flutter last requested a stop', () async {
+      await Service().stop();
+      final revision = calls.last.arguments as int;
+      final stamp = DateTime.now().millisecondsSinceEpoch;
+
+      await report(revision, stamp);
+      await report(revision, 0);
+
+      expect(listener.states, [
+        (DateTime.fromMillisecondsSinceEpoch(stamp), null),
+        (null, null),
+      ]);
+      expect(calls.map((call) => call.method), ['stop']);
+    });
+
+    test('a delayed system report cannot overwrite a newer command', () async {
+      await Service().start();
+      final revision = calls.last.arguments as int;
+      await Service().stop();
+
+      await report(revision, DateTime.now().millisecondsSinceEpoch);
+
+      expect(listener.states, isEmpty);
+    });
+
+    test('records the options reported by the active extension', () async {
+      await Service().stop();
+      final revision = calls.last.arguments as int;
+      const options = VpnOptions(
+        enable: true,
+        port: 7890,
+        ipv6: true,
+        dnsHijacking: true,
+        accessControlProps: AccessControlProps(),
+        allowBypass: false,
+        systemProxy: true,
+        bypassDomain: [],
+        stack: 'mixed',
+        mtu: 1500,
+      );
+
+      await report(
+        revision,
+        DateTime.now().millisecondsSinceEpoch,
+        options: options,
+      );
+
+      expect(listener.states.single.$2, options);
     });
   });
 

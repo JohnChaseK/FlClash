@@ -34,6 +34,8 @@ abstract mixin class ServiceListener {
   void onServiceEvent(CoreEvent event) {}
 
   void onServiceStopped() {}
+
+  void onServiceState(DateTime? startTime, VpnOptions? options) {}
 }
 
 class Service {
@@ -46,6 +48,8 @@ class Service {
 
   int _commandRevision = 0;
   bool _startRequested = false;
+
+  int get commandRevision => _commandRevision;
 
   factory Service() {
     _instance ??= Service._internal();
@@ -76,6 +80,27 @@ class Service {
           }
           _startRequested = false;
           _dispatch('stop report', (listener) => listener.onServiceStopped());
+          break;
+        case 'vpnState':
+          final state = Map<String, Object?>.from(call.arguments as Map);
+          if (state['revision'] != _commandRevision) {
+            break;
+          }
+          final stamp = state['startTime'] as int;
+          final startTime = stamp == 0
+              ? null
+              : DateTime.fromMillisecondsSinceEpoch(stamp);
+          final rawOptions = state['vpnOptions'];
+          final options = startTime == null || rawOptions == null
+              ? null
+              : VpnOptions.fromJson(
+                  json.decode(rawOptions as String) as Map<String, Object?>,
+                );
+          _startRequested = startTime != null;
+          _dispatch(
+            'VPN state',
+            (listener) => listener.onServiceState(startTime, options),
+          );
           break;
         default:
           throw MissingPluginException();

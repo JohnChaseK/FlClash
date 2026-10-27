@@ -20,6 +20,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		D4E1421F95B2477B9812F001 /* TunnelDescriptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E1421F95B2477B9812F002 /* TunnelDescriptor.swift */; };
 		0BA0952A6A5E2A961F0CF482 /* FlClashCore.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0DCA3D8B0E638CDA39EA198E /* FlClashCore.xcframework */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
@@ -105,6 +106,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		D4E1421F95B2477B9812F002 /* TunnelDescriptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelDescriptor.swift; sourceTree = "<group>"; };
 		00EBAFAD3F93BB8D2EF5D89E /* IOSCoreService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSCoreService.swift; sourceTree = "<group>"; };
 		054E37D13189F6357037635C /* PacketTunnelProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PacketTunnelProvider.swift; sourceTree = "<group>"; };
 		0DCA3D8B0E638CDA39EA198E /* FlClashCore.xcframework */ = {isa = PBXFileReference; includeInIndex = 1; name = FlClashCore.xcframework; path = Frameworks/FlClashCore.xcframework; sourceTree = "<group>"; };
@@ -183,6 +185,7 @@
 			isa = PBXGroup;
 			children = (
 				054E37D13189F6357037635C /* PacketTunnelProvider.swift */,
+				D4E1421F95B2477B9812F002 /* TunnelDescriptor.swift */,
 				E20A8BCD206161574EDC839E /* TunnelNetworkSettings.swift */,
 			);
 			name = PacketTunnel;
@@ -579,6 +582,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F9FFC4060D5C928B46F30DC8 /* PacketTunnelProvider.swift in Sources */,
+				D4E1421F95B2477B9812F001 /* TunnelDescriptor.swift in Sources */,
 				C196ACB56C62B809F41B41B7 /* TunnelNetworkSettings.swift in Sources */,
 				ECA55944318F3E316CCB26AF /* CoreBridge.swift in Sources */,
 				86C43E9DEF159A09B979831C /* TunnelStorage.swift in Sources */,
@@ -659,6 +663,7 @@
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-lresolv",
+					"-weak-lswiftDarwin",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "$(FLCLASH_BUNDLE_ID).PacketTunnel";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -703,6 +708,7 @@
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-lresolv",
+					"-weak-lswiftDarwin",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "$(FLCLASH_BUNDLE_ID).PacketTunnel";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1075,6 +1081,7 @@
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-lresolv",
+					"-weak-lswiftDarwin",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "$(FLCLASH_BUNDLE_ID).PacketTunnel";
 				PRODUCT_NAME = "$(TARGET_NAME)";

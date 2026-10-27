@@ -238,7 +238,11 @@ ConfigToggleItem _appSettingToggle({
 }
 
 class GeneralView extends ConsumerWidget {
-  const GeneralView({super.key});
+  final bool? isIOS;
+
+  const GeneralView({super.key, this.isIOS});
+
+  bool get _isIOS => isIOS ?? system.isIOS;
 
   List<Widget> _startupItems(AppLocalizations appLocalizations) {
     return [
@@ -259,10 +263,11 @@ class GeneralView extends ConsumerWidget {
         select: (state) => state.autoRun,
         update: (state, value) => state.copyWith(autoRun: value),
       ),
-      ListItem.open(
-        title: Text(appLocalizations.onDemand),
-        widget: const OnDemandView(),
-      ),
+      if (!_isIOS)
+        ListItem.open(
+          title: Text(appLocalizations.onDemand),
+          widget: const OnDemandView(),
+        ),
       _appSettingToggle(
         title: (l) => l.minimizeOnExit,
         select: (state) => state.minimizeOnExit,
@@ -407,7 +412,7 @@ class GeneralView extends ConsumerWidget {
             footer: [
               if (system.isDesktop) appLocalizations.silentLaunchDesc,
               appLocalizations.autoRunDesc,
-              appLocalizations.onDemandDesc,
+              if (!_isIOS) appLocalizations.onDemandDesc,
             ].join('\n'),
           ),
           generateSection(

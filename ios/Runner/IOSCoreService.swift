@@ -9,13 +9,14 @@ final class IOSCoreService: NSObject {
     private let gate = CoreRequestGate()
     private var manager: NETunnelProviderManager?
     private var initialization: Data?
-    private var setup: Data?
     private var vpnOptions: Data?
+    private var recovery: TunnelSnapshot?
+    private var localLease: CoreLease?
+    private var initialized = false
     private var remote = false
     private var transitioning = false
     private var closed = false
     private var revision = 0
-    private var requestedRunning = false
     private var localRunTime: Date?
     private var routeWatch = false
     private var logsEnabled = false
@@ -44,9 +45,9 @@ final class IOSCoreService: NSObject {
                 ) { [weak self] notification in
                     Task { @MainActor in
                         if notification.name == UIApplication.didBecomeActiveNotification {
-                            self?.startPolling()
+                            self?.statusChanged(refresh: true)
                         } else {
-                            self?.stopPolling()
+                            self?.suspendLocalCore()
                         }
                     }
                 })
@@ -69,44 +70,52 @@ final class IOSCoreService: NSObject {
                         closed = false
                         try TunnelStorage.pruneAbandonedMessages()
                         manager = try await loadManager()
+                        if isTunnelActive { try await shutdownLocalCore() }
                         if manager?.connection.status == .connecting {
                             try await waitForConnection(connected: true)
                         } else if manager?.connection.status == .disconnecting {
                             try await waitForConnection(connected: false)
                         }
                         remote = isTunnelActive
-                        if let snapshot = try? TunnelStorage.load() {
+                        if let snapshot = try? await Task.detached(priority: .utility, operation: {
+                            try TunnelStorage.load()
+                        }).value {
+                            recovery = snapshot
                             initialization = snapshot.initialization
-                            setup = snapshot.setup
                             vpnOptions = snapshot.options
                         }
+                        if !remote && localLease == nil {
+                            localLease = try await CoreLease.acquire(directory: TunnelStorage.root())
+                        }
+                        initialized = true
                         startPolling()
                         result("")
                     } catch { result(error.localizedDescription) }
                 }
             }
         case "syncState":
-            do {
-                guard let raw = call.arguments as? String,
-                    let state = try JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any],
-                    let options = state["vpnOptions"] as? [String: Any]
-                else {
-                    throw TunnelError.message("Missing iOS VPN options")
+            gate.barrier { [self] done in
+                Task { @MainActor in
+                    defer { done() }
+                    do {
+                        guard let raw = call.arguments as? String,
+                            let state = try JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any],
+                            let options = state["vpnOptions"] as? [String: Any]
+                        else { throw TunnelError.message("Missing iOS VPN options") }
+                        let data = try JSONSerialization.data(withJSONObject: options)
+                        if var snapshot = recovery, snapshot.options != data {
+                            snapshot.options = data
+                            try await persist(snapshot)
+                        }
+                        vpnOptions = data
+                        result("")
+                    } catch { result(error.localizedDescription) }
                 }
-                vpnOptions = try JSONSerialization.data(withJSONObject: options)
-                if let latest = state["setupParams"] as? [String: Any], let setup,
-                    var applied = try JSONSerialization.jsonObject(with: setup) as? [String: Any]
-                {
-                    applied.merge(latest) { _, newest in newest }
-                    self.setup = try JSONSerialization.data(withJSONObject: applied)
-                }
-                result("")
-            } catch { result(error.localizedDescription) }
+            }
         case "start", "stop":
             revision = (call.arguments as? NSNumber)?.intValue ?? revision + 1
-            requestedRunning = call.method == "start"
             let requestedRevision = revision
-            let running = requestedRunning
+            let running = call.method == "start"
             gate.barrier { [self] done in
                 Task { @MainActor in
                     defer { done() }
@@ -121,25 +130,27 @@ final class IOSCoreService: NSObject {
                         startPolling()
                     }
                     do {
+                        try await reconcileTunnel()
                         if running { try await start(requestedRevision) } else { try await stop() }
                         result(requestedRevision == revision)
                     } catch { fail(error, result) }
                 }
             }
         case "getRunTime":
-            let date = remote ? manager?.connection.connectedDate : localRunTime
-            result(date.map { Int64($0.timeIntervalSince1970 * 1000) } ?? 0)
+            gate.request { [self] done in
+                result(runTime.map { Int64($0.timeIntervalSince1970 * 1000) } ?? 0)
+                done()
+            }
         case "shutdown":
             closed = true
             revision += 1
-            requestedRunning = false
             stopPolling()
             gate.barrier { [self] done in
                 Task { @MainActor in
                     defer { done() }
                     do {
                         try await disconnect()
-                        try await CoreBridge.checked("shutdown")
+                        try await shutdownLocalCore()
                         result(true)
                     } catch { fail(error, result) }
                 }
@@ -149,17 +160,24 @@ final class IOSCoreService: NSObject {
     }
 
     private func invoke(_ raw: String, result: @escaping FlutterResult) {
-        gate.request { [self] done in
-            guard !closed else {
-                fail(TunnelError.message("Core service is closed"), result)
+        if remote != isTunnelActive
+            || (!remote && localLease == nil && UIApplication.shared.applicationState != .background)
+        {
+            statusChanged()
+        }
+        let operation: CoreRequestGate.Operation = { [self] done in
+            guard !closed, remote || localLease != nil else {
+                fail(TunnelError.message("Core service is unavailable"), result)
                 done()
                 return
             }
             rememberSubscriptionIntent(raw)
             let complete: (Data) -> Void = { data in
                 Task { @MainActor in
-                    self.remember(raw, response: data)
-                    result(FlutterStandardTypedData(bytes: data))
+                    do {
+                        try await self.remember(raw, response: data)
+                        result(FlutterStandardTypedData(bytes: data))
+                    } catch { self.fail(error, result) }
                     done()
                 }
             }
@@ -182,23 +200,63 @@ final class IOSCoreService: NSObject {
                 CoreBridge.invoke(raw, completion: complete)
             }
         }
+        let method = (try? JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any])?["method"] as? String
+        if ["initClash", "setupConfig", "updateConfig", "changeProxy"].contains(method ?? "") {
+            gate.barrier(operation)
+        } else {
+            gate.request(operation)
+        }
     }
 
-    private func remember(_ raw: String, response: Data) {
+    private func remember(_ raw: String, response: Data) async throws {
         guard let call = try? JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any],
             let method = call["method"] as? String,
-            ["initClash", "setupConfig"].contains(method),
+            ["initClash", "setupConfig", "updateConfig", "changeProxy"].contains(method),
             let result = try? JSONSerialization.jsonObject(with: response) as? [String: Any],
-            result["error"] == nil
+            result["error"] == nil || result["error"] is NSNull
         else { return }
         guard let arguments = call["arguments"], !(arguments is NSNull),
             let data = try? JSONSerialization.data(withJSONObject: arguments)
         else { return }
-        switch call["method"] as? String {
-        case "initClash": initialization = data
-        case "setupConfig" where (result["result"] as? String ?? "").isEmpty: setup = data
+        switch method {
+        case "initClash" where result["result"] as? Bool == true:
+            initialization = data
+        case "setupConfig" where (result["result"] as? String ?? "").isEmpty:
+            guard let initialization, let vpnOptions else {
+                throw TunnelError.message("Missing iOS configuration recovery parameters")
+            }
+            let snapshot = try await Task.detached(priority: .utility) {
+                try TunnelSnapshot.capture(initialization: initialization, setup: data, options: vpnOptions)
+            }.value
+            try await persist(snapshot)
+        case "updateConfig" where (result["result"] as? String ?? "").isEmpty:
+            guard var snapshot = recovery, let patch = arguments as? [String: Any] else { return }
+            var update = try snapshot.update.map {
+                try JSONSerialization.jsonObject(with: $0) as? [String: Any] ?? [:]
+            } ?? [:]
+            update.merge(patch.filter { !($0.value is NSNull) }) { _, newest in newest }
+            snapshot.update = try JSONSerialization.data(withJSONObject: update)
+            try await persist(snapshot)
+        case "changeProxy":
+            guard var snapshot = recovery, let change = arguments as? [String: Any],
+                let answer = result["result"] as? [String: Any],
+                (answer["message"] as? String ?? "").isEmpty,
+                let group = change["group-name"] as? String,
+                let proxy = change["proxy-name"] as? String,
+                var parameters = try JSONSerialization.jsonObject(with: snapshot.setup) as? [String: Any]
+            else { return }
+            var selected = parameters["selected-map"] as? [String: String] ?? [:]
+            selected[group] = proxy
+            parameters["selected-map"] = selected
+            snapshot.setup = try JSONSerialization.data(withJSONObject: parameters)
+            try await persist(snapshot)
         default: break
         }
+    }
+
+    private func persist(_ snapshot: TunnelSnapshot) async throws {
+        try await Task.detached(priority: .utility) { try TunnelStorage.save(snapshot) }.value
+        recovery = snapshot
     }
 
     private func rememberSubscriptionIntent(_ raw: String) {
@@ -215,7 +273,7 @@ final class IOSCoreService: NSObject {
 
     private func start(_ requestedRevision: Int) async throws {
         guard !remote else { return }
-        guard let initialization, let setup, let vpnOptions else {
+        guard var snapshot = recovery, let vpnOptions else {
             throw TunnelError.message("Apply a profile before starting the VPN")
         }
         let options = try JSONSerialization.jsonObject(with: vpnOptions) as? [String: Any] ?? [:]
@@ -224,9 +282,9 @@ final class IOSCoreService: NSObject {
             localRunTime = Date()
             return
         }
-        try TunnelStorage.save(
-            TunnelSnapshot(initialization: initialization, setup: setup, options: vpnOptions))
-        try await CoreBridge.checked("shutdown")
+        snapshot.options = vpnOptions
+        try await persist(snapshot)
+        try await shutdownLocalCore()
         do {
             let manager = try await configuredManager()
             guard requestedRevision == revision, !closed else { throw CancellationError() }
@@ -251,25 +309,88 @@ final class IOSCoreService: NSObject {
     }
 
     private func stop() async throws {
+        localRunTime = nil
         if remote || isTunnelActive {
             try await disconnect()
-            try await restoreLocal()
-        } else {
+            if UIApplication.shared.applicationState != .background { try await restoreLocal() }
+        } else if localLease != nil {
             try await CoreBridge.checked("stopListener")
         }
-        localRunTime = nil
     }
 
     private func restoreLocal() async throws {
+        guard localLease == nil, UIApplication.shared.applicationState != .background else { return }
+        localLease = try await CoreLease.acquire(directory: TunnelStorage.root())
         remote = false
-        if let initialization {
-            try await CoreBridge.checked(
-                "initClash", arguments: JSONSerialization.jsonObject(with: initialization))
+        do {
+            if let recovery {
+                try await recovery.restoreCore()
+            } else if let initialization {
+                try await CoreBridge.checked(
+                    "initClash", arguments: JSONSerialization.jsonObject(with: initialization))
+            }
+            if localRunTime != nil { try await CoreBridge.checked("startListener") }
+            try await restoreSubscriptions()
+        } catch {
+            try await shutdownLocalCore()
+            throw error
         }
-        if let setup {
-            try await CoreBridge.checked("setupConfig", arguments: JSONSerialization.jsonObject(with: setup))
+    }
+
+    private func shutdownLocalCore() async throws {
+        guard localLease != nil else { return }
+        try await CoreBridge.checked("shutdown")
+        localLease = nil
+    }
+
+    private var runTime: Date? {
+        remote ? manager?.connection.connectedDate : localRunTime
+    }
+
+    private func reconcileTunnel() async throws {
+        if isTunnelActive {
+            try await shutdownLocalCore()
+            if manager?.connection.status == .disconnecting {
+                try await waitForConnection(connected: false)
+            } else {
+                do { try await waitForConnection(connected: true) } catch {
+                    if isTunnelActive { throw error }
+                }
+                if isTunnelActive {
+                    remote = true
+                    localRunTime = nil
+                    try await restoreSubscriptions()
+                    return
+                }
+            }
         }
-        try await restoreSubscriptions()
+        if remote { localRunTime = nil }
+        remote = false
+        try await restoreLocal()
+    }
+
+    private func suspendLocalCore() {
+        stopPolling()
+        guard initialized, !closed else { return }
+        var backgroundTask = UIBackgroundTaskIdentifier.invalid
+        backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Release local Core") {
+            if backgroundTask != .invalid {
+                UIApplication.shared.endBackgroundTask(backgroundTask)
+                backgroundTask = .invalid
+            }
+        }
+        gate.barrier { [self] done in
+            Task { @MainActor in
+                defer {
+                    if backgroundTask != .invalid { UIApplication.shared.endBackgroundTask(backgroundTask) }
+                    done()
+                }
+                guard UIApplication.shared.applicationState == .background else { return }
+                do { try await shutdownLocalCore() } catch {
+                    NSLog("FlClash: could not release the local Core: %@", error.localizedDescription)
+                }
+            }
+        }
     }
 
     private var isTunnelActive: Bool {
@@ -310,11 +431,16 @@ final class IOSCoreService: NSObject {
 
     private func waitForConnection(connected: Bool) async throws {
         let deadline = Date().addingTimeInterval(30)
+        // startTunnel returns before the app's copy of the status leaves .disconnected,
+        // so a stopped tunnel only counts once it was seen starting or the grace ran out.
+        let grace = Date().addingTimeInterval(3)
+        var started = false
         while Date() < deadline {
             let status = manager?.connection.status ?? .invalid
             if connected && status == .connected { return }
             if !connected && [.disconnected, .invalid].contains(status) { return }
-            if connected && [.disconnected, .invalid].contains(status) {
+            if [.connecting, .reasserting].contains(status) { started = true }
+            if connected && (started || Date() >= grace) && [.disconnected, .invalid].contains(status) {
                 throw TunnelError.message(
                     "The VPN extension stopped before connecting; check the device console")
             }
@@ -394,7 +520,7 @@ final class IOSCoreService: NSObject {
     }
 
     private func startPolling() {
-        guard !polling, !closed, !transitioning,
+        guard !polling, !closed, !transitioning, remote || localLease != nil,
             UIApplication.shared.applicationState != .background
         else { return }
         polling = true
@@ -435,13 +561,14 @@ final class IOSCoreService: NSObject {
         AppleSuspendEvents()
     }
 
-    private func statusChanged() {
-        guard remote, !isTunnelActive, !transitioning, !closed else { return }
-        transitioning = true
-        let stoppedRevision = revision
+    private func statusChanged(refresh: Bool = false) {
+        guard initialized, !closed else { return }
+        let observedRevision = revision
         stopPolling()
-        for reply in Array(pendingReplies.values) {
-            reply(.failure(TunnelError.message("The VPN extension disconnected")))
+        if !isTunnelActive {
+            for reply in Array(pendingReplies.values) {
+                reply(.failure(TunnelError.message("The VPN extension disconnected")))
+            }
         }
         gate.barrier { [self] done in
             Task { @MainActor in
@@ -450,11 +577,22 @@ final class IOSCoreService: NSObject {
                     done()
                     startPolling()
                 }
-                guard remote, !isTunnelActive else { return }
-                do { try await restoreLocal() } catch {
-                    NSLog("FlClash: could not restore the local Core: %@", error.localizedDescription)
+                guard !closed else { return }
+                transitioning = true
+                stopPolling()
+                do {
+                    if refresh { manager = try await loadManager() }
+                    try await reconcileTunnel()
+                    let options = remote ? try await send(["command": "options"]) : vpnOptions
+                    guard observedRevision == revision else { return }
+                    channel.invokeMethod("vpnState", arguments: [
+                        "revision": observedRevision,
+                        "startTime": runTime.map { Int64($0.timeIntervalSince1970 * 1000) } ?? 0,
+                        "vpnOptions": options.map { String(decoding: $0, as: UTF8.self) } ?? NSNull(),
+                    ])
+                } catch {
+                    NSLog("FlClash: could not reconcile the VPN Core: %@", error.localizedDescription)
                 }
-                if requestedRunning { channel.invokeMethod("stopped", arguments: stoppedRevision) }
             }
         }
     }

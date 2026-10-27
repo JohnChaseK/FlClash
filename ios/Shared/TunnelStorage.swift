@@ -1,9 +1,79 @@
+import Darwin
 import Foundation
 
 struct TunnelSnapshot: Codable {
     let initialization: Data
-    let setup: Data
-    let options: Data
+    var setup: Data
+    var options: Data
+    var configuration: Data?
+    var update: Data?
+
+    static func capture(initialization: Data, setup: Data, options: Data) throws -> TunnelSnapshot {
+        guard var parameters = try JSONSerialization.jsonObject(with: setup) as? [String: Any] else {
+            throw TunnelError.message("Invalid Core setup parameters")
+        }
+        // Recovery uses the resolved YAML even if its source profile is edited or removed.
+        parameters.removeValue(forKey: "base")
+        return TunnelSnapshot(
+            initialization: initialization,
+            setup: try JSONSerialization.data(withJSONObject: parameters), options: options,
+            configuration: try Data(contentsOf: configurationURL(initialization)))
+    }
+
+    func restoreCore() async throws {
+        try restoreConfiguration()
+        try await CoreBridge.checked(
+            "initClash", arguments: JSONSerialization.jsonObject(with: initialization))
+        try await CoreBridge.checked("setupConfig", arguments: JSONSerialization.jsonObject(with: setup))
+        if let update {
+            try await CoreBridge.checked("updateConfig", arguments: JSONSerialization.jsonObject(with: update))
+        }
+    }
+
+    func restoreConfiguration() throws {
+        if let configuration {
+            try configuration.write(to: Self.configurationURL(initialization), options: .atomic)
+        }
+    }
+
+    private static func configurationURL(_ initialization: Data) throws -> URL {
+        guard let parameters = try JSONSerialization.jsonObject(with: initialization) as? [String: Any],
+            let directory = parameters["home-dir"] as? String
+        else { throw TunnelError.message("Missing Core home directory") }
+        return URL(fileURLWithPath: directory).appendingPathComponent("config.yaml")
+    }
+}
+
+final class CoreLease {
+    private let handle: FileHandle
+
+    private init(_ handle: FileHandle) {
+        self.handle = handle
+    }
+
+    deinit { handle.closeFile() }
+
+    static func acquire(directory: URL, timeout: TimeInterval = 25) async throws -> CoreLease {
+        let path = directory.appendingPathComponent("core.lock").path
+        if !FileManager.default.fileExists(atPath: path),
+            !FileManager.default.createFile(atPath: path, contents: nil)
+        {
+            throw TunnelError.message("Could not create the Core ownership lock")
+        }
+        guard let handle = FileHandle(forUpdatingAtPath: path) else {
+            throw TunnelError.message("Could not open the Core ownership lock")
+        }
+        let lease = CoreLease(handle)
+        let deadline = Date().addingTimeInterval(timeout)
+        while flock(handle.fileDescriptor, LOCK_EX | LOCK_NB) != 0 {
+            guard Date() < deadline else {
+                throw TunnelError.message("Another Core still owns the shared directory")
+            }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        try Task.checkCancellation()
+        return lease
+    }
 }
 
 enum TunnelStorage {
@@ -20,15 +90,16 @@ enum TunnelStorage {
         return directory
     }
 
-    static func save(_ snapshot: TunnelSnapshot) throws {
+    static func save(_ snapshot: TunnelSnapshot, directory: URL? = nil) throws {
         try JSONEncoder().encode(snapshot).write(
-            to: root().appendingPathComponent("tunnel.json"), options: .atomic
+            to: (directory ?? root()).appendingPathComponent("tunnel.json"), options: .atomic
         )
     }
 
-    static func load() throws -> TunnelSnapshot {
+    static func load(directory: URL? = nil) throws -> TunnelSnapshot {
         try JSONDecoder().decode(
-            TunnelSnapshot.self, from: Data(contentsOf: root().appendingPathComponent("tunnel.json"))
+            TunnelSnapshot.self,
+            from: Data(contentsOf: (directory ?? root()).appendingPathComponent("tunnel.json"))
         )
     }
 
