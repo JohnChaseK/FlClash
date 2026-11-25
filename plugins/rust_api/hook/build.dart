@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:code_assets/code_assets.dart';
 import 'package:flutter_rust_bridge_hooks/flutter_rust_bridge_hooks.dart';
+import 'package:setup_hooks/setup_hooks.dart';
 
 void main(List<String> args) async {
   await build(args, (input, output) async {
@@ -10,32 +11,56 @@ void main(List<String> args) async {
       return;
     }
     await FlutterRustBridgeNativeAssetsBuilder(
-      cratePath: 'rust',
-      extraCargoEnvironmentVariables: await _buildEnvironment(input),
+      cratePath: _cratePath,
+      extraCargoEnvironmentVariables: {
+        ...await _iosSdkEnvironment(input),
+        ..._bindgenEnvironment(input),
+        ..._trimmedPathEnvironment(input),
+      },
     ).run(input: input, output: output);
   });
 }
 
-Future<Map<String, String>> _buildEnvironment(BuildInput input) async {
-  if (input.config.buildCodeAssets && input.config.code.targetOS == OS.iOS) {
-    final config = input.config.code.iOS;
-    final sdk = config.targetSdk == IOSSdk.iPhoneOS
-        ? 'iphoneos'
-        : 'iphonesimulator';
-    final result = await Process.run('xcrun', [
-      '--sdk',
-      sdk,
-      '--show-sdk-path',
-    ]);
-    if (result.exitCode != 0) {
-      throw StateError('Could not locate the $sdk SDK: ${result.stderr}');
-    }
-    return {
-      'SDKROOT': (result.stdout as String).trim(),
-      'IPHONEOS_DEPLOYMENT_TARGET': '${config.targetVersion}.0',
-    };
+const _cratePath = 'rust';
+
+Future<Map<String, String>> _iosSdkEnvironment(BuildInput input) async {
+  if (!input.config.buildCodeAssets || input.config.code.targetOS != OS.iOS) {
+    return const {};
   }
-  return _bindgenEnvironment(input);
+  final config = input.config.code.iOS;
+  final sdk = config.targetSdk == IOSSdk.iPhoneOS
+      ? 'iphoneos'
+      : 'iphonesimulator';
+  final result = await Process.run('xcrun', ['--sdk', sdk, '--show-sdk-path']);
+  if (result.exitCode != 0) {
+    throw StateError('Could not locate the $sdk SDK: ${result.stderr}');
+  }
+  return {
+    'SDKROOT': (result.stdout as String).trim(),
+    'IPHONEOS_DEPLOYMENT_TARGET': '${config.targetVersion}.0',
+  };
+}
+
+Map<String, String> _trimmedPathEnvironment(BuildInput input) {
+  if (!input.config.buildCodeAssets) return const {};
+  final triple = _rustTriple(input.config.code);
+  if (triple == null) return const {};
+  return trimmedPathEnvironment(
+    checkoutDir: Directory.fromUri(input.packageRoot.resolve('../..')).path,
+    toolchainDir: Directory.fromUri(input.packageRoot.resolve(_cratePath)).path,
+    targetTriple: triple,
+  );
+}
+
+String? _rustTriple(CodeConfig code) {
+  if (code.targetOS != OS.iOS) return rustTargetTriple(code);
+  final simulator = code.iOS.targetSdk == IOSSdk.iPhoneSimulator;
+  return switch (code.targetArchitecture) {
+    Architecture.arm64 =>
+      simulator ? 'aarch64-apple-ios-sim' : 'aarch64-apple-ios',
+    Architecture.x64 when simulator => 'x86_64-apple-ios',
+    _ => null,
+  };
 }
 
 // rquickjs runs bindgen on Android, which must load the NDK's libclang; Linux

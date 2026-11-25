@@ -22,9 +22,13 @@ class _RecordingListener with ServiceListener {
 
 class _RecordingStopListener with ServiceListener {
   var stops = 0;
+  final failures = <ServiceStartFailure?>[];
 
   @override
-  void onServiceStopped() => stops++;
+  void onServiceStopped([ServiceStartFailure? failure]) {
+    stops++;
+    failures.add(failure);
+  }
 }
 
 class _RecordingStateListener with ServiceListener {
@@ -46,7 +50,7 @@ class _ThrowingListener with ServiceListener {
   }
 
   @override
-  void onServiceStopped() {
+  void onServiceStopped([ServiceStartFailure? failure]) {
     throw StateError('listener boom');
   }
 }
@@ -176,17 +180,20 @@ void main() {
       final sent = json.decode(calls.single.arguments as String);
       expect(sent['currentProfileName'], 'profile');
       expect(sent['onlyStatisticsProxy'], isTrue);
+      expect(sent, isNot(contains('setupParams')));
     });
   });
 
   group('stop reports', () {
     late _RecordingStopListener listener;
 
-    Future<void> reportStopped(Object? revision) async {
+    Future<void> reportStopped(Object? revision, {String? failure}) async {
       await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .handlePlatformMessage(
             channelName,
-            codec.encodeMethodCall(MethodCall('stopped', revision)),
+            codec.encodeMethodCall(
+              MethodCall('stopped', {'revision': revision, 'failure': failure}),
+            ),
             null,
           );
     }
@@ -220,6 +227,14 @@ void main() {
         expect(listener.stops, 1);
       },
     );
+
+    test('a start the service gave up names why', () async {
+      await Service().start();
+
+      await reportStopped(lastRevision(), failure: 'vpn_permission');
+
+      expect(listener.failures, [ServiceStartFailure.vpnPermission]);
+    });
 
     test('a report older than the newest command is dropped', () async {
       await Service().start();
@@ -368,7 +383,7 @@ void main() {
       final response = await Service().invokeMethod(
         const CoreMethodCall(
           id: '7',
-          method: CoreMethod.getTraffic,
+          method: CoreMethod.trafficCurrent,
           arguments: true,
         ),
       );
@@ -377,13 +392,13 @@ void main() {
           json.decode(calls.single.arguments as String) as Map<String, Object?>;
       expect(calls.single.method, 'invokeMethod');
       expect(sent['id'], '7');
-      expect(sent['method'], CoreMethod.getTraffic.name);
+      expect(sent['method'], CoreMethod.trafficCurrent.wireName);
       expect(
         sent['arguments'],
         isTrue,
         reason: 'arguments stay structured JSON, never a pre-encoded string',
       );
-      expect(response!.id, '7');
+      expect(response.id, '7');
       expect(response.result, {'up': 1});
       expect(response.error, isNull);
     });
@@ -397,11 +412,30 @@ void main() {
       );
 
       final response = await Service().invokeMethod(
-        const CoreMethodCall(id: '3', method: CoreMethod.getProxies),
+        const CoreMethodCall(id: '3', method: CoreMethod.proxyList),
       );
 
-      expect(response!.result, names);
+      expect(response.result, names);
     });
+
+    test(
+      'runs the call\'s own model where it decodes a large envelope',
+      () async {
+        final names = List.generate(5000, (index) => '节点-$index');
+        mockCoreChannel(
+          (_) async => utf8.encode(
+            json.encode(CoreMethodResponse(id: '3', result: names).toJson()),
+          ),
+        );
+
+        final response = await Service().invokeMethod(
+          const CoreMethodCall(id: '3', method: CoreMethod.proxyList),
+          model: _lengthOf,
+        );
+
+        expect(response.result, 5000);
+      },
+    );
 
     test('reads an envelope the Core spilled to a file', () async {
       final home = Directory.systemTemp.createTempSync('service_spill');
@@ -421,21 +455,27 @@ void main() {
       );
 
       final response = await Service().invokeMethod(
-        const CoreMethodCall(id: '8', method: CoreMethod.getConfig),
+        const CoreMethodCall(id: '8', method: CoreMethod.configRead),
       );
 
-      expect(response!.result, 'big');
+      expect(response.result, 'big');
       expect(file.existsSync(), isFalse);
     });
 
-    test('returns null when the platform sends no envelope', () async {
+    test('fails when the platform sends no envelope', () async {
       mockCoreChannel((_) async => null);
 
-      expect(
-        await Service().invokeMethod(
-          const CoreMethodCall(method: CoreMethod.getTraffic),
+      await expectLater(
+        Service().invokeMethod(
+          const CoreMethodCall(method: CoreMethod.trafficCurrent),
         ),
-        isNull,
+        throwsA(
+          isA<CoreMethodException>().having(
+            (error) => error.code,
+            'code',
+            'no_response',
+          ),
+        ),
       );
     });
 
@@ -451,10 +491,10 @@ void main() {
       );
 
       final response = await Service().invokeMethod(
-        const CoreMethodCall(id: '1', method: CoreMethod.getTraffic),
+        const CoreMethodCall(id: '1', method: CoreMethod.trafficCurrent),
       );
 
-      expect(response!.error, isNotNull);
+      expect(response.error, isNotNull);
       expect(response.error!.code, 'unavailable');
       expect(response.error!.message, 'core down');
     });
@@ -590,3 +630,5 @@ void main() {
     });
   });
 }
+
+Object? _lengthOf(Object? result) => (result as List).length;

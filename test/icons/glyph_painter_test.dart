@@ -3,8 +3,8 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:fl_clash/ui/icons/icons.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_ui/material_ui.dart';
 
 const _scale = 3;
 const _side = 24 * _scale;
@@ -98,6 +98,7 @@ final _glyphs = {
   'puzzle': AppGlyphs.puzzle,
   'customize': AppGlyphs.customize,
   'layers': AppGlyphs.layers,
+  'nodeGroup': AppGlyphs.nodeGroup,
   'sun': AppGlyphs.sun,
   'pureBlack': AppGlyphs.pureBlack,
   'palette': AppGlyphs.palette,
@@ -118,7 +119,9 @@ final _glyphs = {
   'torchAuto': AppGlyphs.torchAuto,
   'vpn': AppGlyphs.vpn,
   'status': AppGlyphs.status,
+  'radar': AppGlyphs.radar,
   'verified': AppGlyphs.verified,
+  'certificate': AppGlyphs.certificate,
   'swap': AppGlyphs.swap,
   'shuffle': AppGlyphs.shuffle,
   'split': AppGlyphs.split,

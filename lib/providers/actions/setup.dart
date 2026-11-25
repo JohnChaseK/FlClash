@@ -41,6 +41,8 @@ class SetupAction extends _$SetupAction {
   final _listenerScheduler = SerialTaskScheduler();
   _RunRequest? _latestRunRequest;
   DateTime? _startTime;
+  var _resumeOnRestart = false;
+  ({String digest, Set<String> names})? _outboundNames;
   _SetupInputs? _appliedInputs;
   var _lastPushDuration = Duration.zero;
   var _pendingForceApply = false;
@@ -63,15 +65,10 @@ class SetupAction extends _$SetupAction {
           !ref.read(safeModeProvider) &&
           ref.read(appSettingProvider).showTrayTitle);
 
-  SetupParams get _setupParams {
-    final selectedMap = ref.read(selectedMapProvider);
-    final appSetting = ref.read(appSettingProvider);
-    return SetupParams(
-      selectedMap: selectedMap,
-      testUrl: ref.read(patchClashConfigProvider).testUrl,
-      skipCertVerify: !appSetting.checkCertificate,
-    );
-  }
+  SetupParams get _setupParams => SetupParams(
+    selectedMap: ref.read(selectedMapProvider),
+    options: ref.read(coreOptionsProvider),
+  );
 
   // The selection reaches the Core through changeProxy, not through an apply.
   SetupParams get _appliedParams =>
@@ -163,6 +160,23 @@ class SetupAction extends _$SetupAction {
     }
   }
 
+  bool get wantsRunning => ref.read(isStartProvider) || _resumeOnRestart;
+
+  /// The lost session gets no stop; work begun for the old run stops counting.
+  void onCoreLost() {
+    if (_startTime == null) {
+      return;
+    }
+    _resumeOnRestart = true;
+    _latestRunRequest = null;
+    _setLocalRunning(false);
+    ref.read(runningVpnOptionsProvider.notifier).value = null;
+  }
+
+  void resumeOnRestart() {
+    _resumeOnRestart = true;
+  }
+
   Future<bool> setRunning(bool running, {bool initialize = false}) {
     if (running && !initialize && !ref.read(initProvider)) {
       return Future.value(true);
@@ -207,6 +221,7 @@ class SetupAction extends _$SetupAction {
       previousStartTime: _startTime,
     );
     _latestRunRequest = request;
+    _resumeOnRestart = false;
     _setLocalRunning(running);
     if (request.initialize) {
       globalState.needInitStatus = false;
@@ -222,8 +237,13 @@ class SetupAction extends _$SetupAction {
           force: !request.resume,
           preloadInvoke: () => _startCoreRunning(request),
         );
-      } catch (_) {
-        applied = false;
+      } catch (error) {
+        if (_isCurrent(request)) {
+          dialogs.showBanner(
+            userFacingErrorMessage(error, currentAppLocalizations),
+            level: BannerLevel.error,
+          );
+        }
       }
       if (!applied && _isCurrent(request)) {
         await globalState.safeRun(() => setRunning(false));
@@ -245,18 +265,25 @@ class SetupAction extends _$SetupAction {
   }
 
   Future<void> _startCoreRunning(_RunRequest request) async {
-    if (!await _setCoreRunning(request) && _isCurrent(request)) {
-      throw _unanswered(CoreMethod.startListener);
+    try {
+      await _setCoreRunning(request);
+    } catch (error) {
+      if (_isCurrent(request) || !_isUnanswered(error)) {
+        rethrow;
+      }
     }
   }
 
   Future<bool> _stop(_RunRequest request) async {
-    final bool answered;
+    (Object, StackTrace)? unanswered;
     try {
-      answered = await _setCoreRunning(request);
-    } catch (_) {
-      _rollbackRunning(request);
-      rethrow;
+      await _setCoreRunning(request);
+    } catch (error, stackTrace) {
+      if (!_isUnanswered(error)) {
+        _rollbackRunning(request);
+        rethrow;
+      }
+      unanswered = (error, stackTrace);
     }
     if (!_isCurrent(request)) {
       return true;
@@ -265,42 +292,43 @@ class SetupAction extends _$SetupAction {
     ref.read(trafficsProvider.notifier).clear();
     ref.read(totalTrafficProvider.notifier).value = const Traffic();
     // A silent Core is gone or hung; running again would proxy traffic to it.
-    if (!answered) {
-      throw _unanswered(CoreMethod.stopListener);
+    if (unanswered case (final error, final stackTrace)) {
+      Error.throwWithStackTrace(error, stackTrace);
     }
     return true;
   }
 
-  Future<bool> _setCoreRunning(_RunRequest request) {
+  Future<void> _setCoreRunning(_RunRequest request) {
     return _listenerScheduler.run(() async {
-      if (!_isCurrent(request)) {
-        return true;
+      if (!_isCurrent(request) ||
+          request.running && ref.read(suspendProvider) ||
+          ref.read(safeModeProvider)) {
+        return;
       }
-      if (request.running && ref.read(suspendProvider)) {
-        return true;
-      }
-      if (ref.read(safeModeProvider)) {
-        return true;
-      }
-      return _setListening(request.running, request: request);
+      await _setListening(request.running, request: request);
     });
   }
 
-  Future<bool> _setListening(bool running, {_RunRequest? request}) async {
+  Future<void> _setListening(bool running, {_RunRequest? request}) async {
     final vpnOptions = await ref.read(vpnOptionsProvider.future);
-    final answered = await setCoreRunning(running);
+    try {
+      await setCoreRunning(running);
+    } catch (error) {
+      if (_isUnanswered(error) && (request == null || _isCurrent(request))) {
+        ref.read(runningVpnOptionsProvider.notifier).value = null;
+      }
+      rethrow;
+    }
     if (request == null || _isCurrent(request)) {
-      ref.read(runningVpnOptionsProvider.notifier).value = running && answered
+      ref.read(runningVpnOptionsProvider.notifier).value = running
           ? vpnOptions
           : null;
     }
-    return answered;
   }
 
-  CoreMethodException _unanswered(CoreMethod method) => CoreMethodException(
-    code: 'no_response',
-    message: 'Core did not answer ${method.name}',
-  );
+  bool _isUnanswered(Object error) =>
+      isUnansweredCoreError(error) ||
+      error is CoreMethodException && error.code == 'service_refused';
 
   /// An excluded SSID parks the listener without ending the run.
   void syncSuspend() {
@@ -309,7 +337,13 @@ class SetupAction extends _$SetupAction {
         if (!ref.read(isStartProvider) || ref.read(safeModeProvider)) {
           return;
         }
-        await _setListening(!ref.read(suspendProvider));
+        try {
+          await _setListening(!ref.read(suspendProvider));
+        } catch (error) {
+          if (!_isUnanswered(error)) {
+            rethrow;
+          }
+        }
       });
     });
   }
@@ -337,7 +371,7 @@ class SetupAction extends _$SetupAction {
   }
 
   @protected
-  Future<bool> setCoreRunning(bool running) {
+  Future<void> setCoreRunning(bool running) {
     return running ? _core.startListener() : _core.stopListener();
   }
 
@@ -356,13 +390,12 @@ class SetupAction extends _$SetupAction {
         return;
       }
       final networkSetting = ref.read(networkSettingProvider);
-      final message = await _core.updateConfig(
+      await _core.updateConfig(
         _effectivePatchConfig(patchConfig).toUpdateParams(
           authentication: networkSetting.authentication.credentials,
-          skipCertVerify: !ref.read(appSettingProvider).checkCertificate,
+          options: ref.read(coreOptionsProvider),
         ),
       );
-      if (message.isNotEmpty) throw MessageException(message);
     });
   }
 
@@ -416,9 +449,7 @@ class SetupAction extends _$SetupAction {
 
   void applyIfGlobalRulesUsed() {
     final profile = ref.read(currentProfileProvider);
-    if (profile == null ||
-        profile.type == ProfileType.custom ||
-        profile.extendType != ExtendType.standard) {
+    if (profile == null || profile.type == ProfileType.custom) {
       return;
     }
     applyProfileDebounce(silence: true);
@@ -504,7 +535,21 @@ class SetupAction extends _$SetupAction {
   }) async {
     final profileId = setupState.profileId;
     if (profileId == null) {
-      return (yaml: '', md5: '', counts: configCountsOf(const {}), base: null);
+      final yaml = await encodeYamlTask(
+        inboundConfigOf(
+          patchConfig,
+          authentication: ref
+              .read(networkSettingProvider)
+              .authentication
+              .credentials,
+        ),
+      );
+      return (
+        yaml: yaml,
+        md5: yaml.toMd5(),
+        counts: configCountsOf(const {}),
+        base: null,
+      );
     }
     final defaultUA = globalState.packageInfo.ua;
     final networkSetting = ref.read(
@@ -518,10 +563,7 @@ class SetupAction extends _$SetupAction {
     );
     final appendSystemDns = networkSetting.appendSystemDns;
     final isCustom = setupState.profileType == ProfileType.custom;
-    final scriptContent =
-        !isCustom && setupState.extendType == ExtendType.script
-        ? await setupState.script?.content
-        : null;
+    final scriptContent = isCustom ? null : await setupState.script?.content;
     final hasScript = scriptContent?.isNotEmpty == true;
     final profileBase = !isCustom && !hasScript
         ? await _core.getProfileBase(profileId)
@@ -534,13 +576,16 @@ class SetupAction extends _$SetupAction {
               groups: setupState.proxyGroups,
             ),
           }
-        : profileBase?.base.config ?? await _core.getConfig(profileId);
+        : profileBase?.base.config ?? await _core.readConfig(profileId);
     final proxyGroups = isCustom ? setupState.proxyGroups : <ProxyGroup>[];
     final rules = isCustom ? setupState.rules : <Rule>[];
     if (hasScript) {
       rawConfig = await handleEvaluate(scriptContent!, rawConfig);
     }
     final directory = await appPath.profilesPath;
+    final hasCustomExit =
+        setupState.addedRules.any((rule) => rule.customExit) ||
+        setupState.mitmModules.isNotEmpty;
     final injected = await _resolveInjectedProviders(
       setupState,
       proxyGroups: proxyGroups,
@@ -558,17 +603,23 @@ class SetupAction extends _$SetupAction {
         realPatchConfig: patchConfig,
         overrides: setupState.overrides,
         bypassPrivateRoute: networkSetting.bypassPrivateRoute,
-        keepEmptyDnsOverrides: setupState.profileType != ProfileType.custom,
         appendSystemDns: appendSystemDns,
+        // sing-tun points the system resolver at the TUN by default with
+        // auto-route everywhere but macOS, where native does it through a
+        // dynamic store entry that configd drops when the Core exits.
+        defaultTunDnsMode: system.isMacOS ? 'native' : null,
         addedRules: setupState.addedRules,
         defaultUA: defaultUA,
         authentication: networkSetting.authentication.credentials,
-        matchTarget:
-            profileBase == null ||
-                setupState.matchTarget?.trim().isNotEmpty == true
-            ? setupState.matchTarget
+        exitTargets: setupState.exitTargets,
+        outboundNames: profileBase != null && hasCustomExit
+            ? await _outboundNamesOf(profileId, profileBase.base.digest)
+            : null,
+        defaultExitTarget: profileBase == null
+            ? null
             : lastMatchTarget(profileBase.base.matchRules),
         safeMode: ref.read(safeModeProvider),
+        mitmModules: setupState.mitmModules,
       ),
     );
     if (profileBase == null) {
@@ -585,6 +636,17 @@ class SetupAction extends _$SetupAction {
       ),
       base: SetupBase(path: path, overlay: res.yaml),
     );
+  }
+
+  Future<Set<String>> _outboundNamesOf(int profileId, String digest) async {
+    final cached = _outboundNames;
+    if (cached != null && cached.digest == digest) {
+      return cached.names;
+    }
+    final outbounds = await _core.getProfileOutbounds(profileId);
+    final names = outboundNamesOf(outbounds);
+    _outboundNames = (digest: digest, names: names);
+    return names;
   }
 
   /// Only what the custom profile actually references is injected, so an
@@ -650,7 +712,7 @@ class SetupAction extends _$SetupAction {
         null => res.yaml,
       };
     } catch (e) {
-      dialogs.showNotifier(e.toString(), level: MessageLevel.error);
+      dialogs.showBanner(e.toString(), level: BannerLevel.error);
     }
     return '';
   }
@@ -709,9 +771,9 @@ class SetupAction extends _$SetupAction {
         ref
             .read(patchClashConfigProvider.notifier)
             .update((state) => state.copyWith.tun(enable: false));
-        dialogs.showNotifier(
+        dialogs.showBanner(
           currentAppLocalizations.tunAuthorizationFailed,
-          level: MessageLevel.error,
+          level: BannerLevel.error,
         );
         return true;
     }
@@ -807,16 +869,29 @@ class SetupAction extends _$SetupAction {
           }
           final profileId = profile?.id;
           if (profileId != null) {
-            await appPath.ensureProviderDirs(profileId);
+            // A Core that ran elevated may have left these root-owned; it
+            // reclaims them once it runs elevated again, so the config goes on.
+            try {
+              await appPath.ensureProviderDirs(profileId);
+            } on FileSystemException catch (error) {
+              commonPrint.log(
+                'provider directories unavailable: ${compactError(error)}',
+                logLevel: LogLevel.warning,
+              );
+            }
           }
-          final message = await _core.setupConfig(
-            params: setupParams,
-            preloadInvoke: preloadInvoke,
-          );
-          if (message.isNotEmpty) {
+          try {
+            await _core.setupConfig(
+              params: setupParams,
+              preloadInvoke: preloadInvoke,
+            );
+          } on CoreMethodException catch (error) {
+            if (error.code != 'config_rejected') {
+              rethrow;
+            }
             globalState.lastConfigCounts = configCountsOf(const {});
             await globalState.safeRun(() => onUpdated?.call());
-            throw MessageException(message);
+            throw MessageException(error.message);
           }
         } catch (e, s) {
           setupFailed = true;

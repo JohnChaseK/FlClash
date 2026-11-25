@@ -9,14 +9,13 @@ import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/providers/routed_probe.dart';
 import 'package:fl_clash/providers/service_status.dart';
 import 'package:fl_clash/ui/icons/icons.dart';
-import 'package:fl_clash/views/dashboard/probe_start_hold.dart';
 import 'package:fl_clash/views/dashboard/layout.dart';
 import 'package:fl_clash/views/dashboard/style.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:material_ui/material_ui.dart';
 
 import 'card.dart';
 
@@ -78,11 +77,10 @@ Color _statusColor(BuildContext context, ServiceProbeStatus status) {
   return (localizations.servicePending, idle);
 }
 
-/// A service as the card shows it: a failure held through a start reads as
-/// still checking, without the result it replaced.
 class _ServiceView {
-  _ServiceView(this.target, ProbeEntry<ServiceCheck> entry, this.phase)
-    : check = phase == entry.phase ? entry.value : null;
+  _ServiceView(this.target, ProbeEntry<ServiceCheck> entry)
+    : phase = entry.phase,
+      check = entry.value;
 
   final ServiceTarget target;
   final ProbePhase phase;
@@ -125,8 +123,7 @@ class ServiceStatusCard extends ConsumerStatefulWidget {
   ConsumerState<ServiceStatusCard> createState() => _ServiceStatusCardState();
 }
 
-class _ServiceStatusCardState extends ConsumerState<ServiceStatusCard>
-    with ProbeStartHold<ServiceStatusCard> {
+class _ServiceStatusCardState extends ConsumerState<ServiceStatusCard> {
   late final ServiceStatus _services;
   Set<ServiceTarget> _shown = const {};
   Set<ServiceTarget> _watched = const {};
@@ -183,12 +180,7 @@ class _ServiceStatusCardState extends ConsumerState<ServiceStatusCard>
     _syncShown(shown.toSet(), shownCount);
     final state = ref.watch(serviceStatusProvider);
     final services = [
-      for (final target in shown)
-        _ServiceView(
-          target,
-          state.entryOf(target),
-          shownPhase(state.entryOf(target)),
-        ),
+      for (final target in shown) _ServiceView(target, state.entryOf(target)),
     ];
     final problems = services.where((service) => service.abnormal).length;
     final verdict = problems > 0
@@ -225,7 +217,7 @@ class _ServiceStatusCardState extends ConsumerState<ServiceStatusCard>
         mainAxisSize: mobile ? MainAxisSize.min : MainAxisSize.max,
         children: [
           DashboardCardHeader(
-            glyph: AppGlyphs.verified,
+            glyph: AppGlyphs.radar,
             title: appLocalizations.serviceStatus,
             chevron: mobile,
             trailing: [
@@ -413,7 +405,7 @@ class _CheckAllButton extends StatelessWidget {
     if (loading) {
       return const SizedBox.square(
         dimension: 32,
-        child: Center(child: CommonCircleLoading(size: 18)),
+        child: Center(child: ActivityIndicator(size: 18)),
       );
     }
     return DashboardIconButton(
@@ -503,12 +495,10 @@ class _OutboundIpLine extends StatelessWidget {
     if (ip == null) return line;
     return Tooltip(
       message: context.appLocalizations.outboundIp,
-      child: InkWell(
+      child: PressRegion(
         onTap: () => showIpQualitySheet(context, ip: ip.ip),
-        customBorder: AppShape.xs,
-        hoverColor: Colors.transparent,
-        splashColor: Colors.transparent,
-        highlightColor: Colors.transparent,
+        shape: AppShape.xs,
+        overlay: PressRegion.focusOverlay,
         child: line,
       ),
     );
@@ -640,11 +630,9 @@ class _BadgePainter extends CustomPainter {
 }
 
 Future<void> showServiceStatusSheet(BuildContext context) {
-  return showSheet<void>(
-    context: context,
-    props: nestedPagedSheetProps,
-    builder: (_) =>
-        NestedPagedSheet(builder: (_) => const ServiceStatusSheet()),
+  return showNestedSheet<void>(
+    context,
+    builder: (_) => const ServiceStatusSheet(),
   );
 }
 
@@ -658,7 +646,7 @@ class ServiceStatusSheet extends ConsumerWidget {
     final state = ref.watch(serviceStatusProvider);
     final services = ref.read(serviceStatusProvider.notifier);
     final localizations = context.appLocalizations;
-    return CommonScaffold(
+    return Scaffold(
       title: localizations.serviceStatus,
       iconActions: [
         IconButtonData(
@@ -683,7 +671,7 @@ class ServiceStatusSheet extends ConsumerWidget {
           ),
           SliverPadding(
             padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + context.bottomInset),
-            sliver: SliverList.builder(
+            sliver: SliverPrismList(
               itemCount: targets.length,
               itemBuilder: (context, index) {
                 final target = targets[index];
@@ -753,7 +741,7 @@ class ServiceManageView extends ConsumerWidget {
       );
     }
 
-    return CommonScaffold(
+    return Scaffold(
       title: context.appLocalizations.serviceManage,
       body: CustomScrollView(
         shrinkWrap: true,
@@ -761,7 +749,7 @@ class ServiceManageView extends ConsumerWidget {
           SliverToBoxAdapter(
             child: SizedBox(height: context.contentTopPadding),
           ),
-          SliverReorderableList(
+          SliverPrismReorderableList(
             itemBuilder: (_, index) => itemAt(index),
             itemCount: targets.length,
             proxyDecorator: (child, index, animation) =>
@@ -802,7 +790,7 @@ class _ServiceManageItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final onChanged = this.onChanged;
-    return ReorderableDelayedDragStartListener(
+    return ReorderDragStartListener(
       index: index,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -830,7 +818,7 @@ class _ServiceManageItem extends StatelessWidget {
             subtitle: shown
                 ? Text(context.appLocalizations.serviceShownOnDashboard)
                 : null,
-            trailing: CommonSwitch(value: enabled, onChanged: onChanged),
+            trailing: Switch(value: enabled, onChanged: onChanged),
           ),
         ),
       ),
@@ -872,7 +860,7 @@ class _ServiceRowState extends ConsumerState<_ServiceRow>
           )
         : null;
     final outboundIp = ipEntry?.value;
-    final service = _ServiceView(target, entry, entry.phase);
+    final service = _ServiceView(target, entry);
     return LayoutBuilder(
       builder: (context, constraints) => DecorationListItem(
         minVerticalPadding: _rowBadgeInset,

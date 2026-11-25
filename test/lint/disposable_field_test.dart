@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import 'sources.dart';
+
 const _disposableTypes = {
   'AnimationController',
   'FocusNode',
@@ -23,6 +25,7 @@ const _allowed = {
   // `App` is the process-wide Android plugin; the notifier relays keyboard
   // state from the platform channel for the whole run.
   'lib/plugins/app.dart#floatingKeyboard',
+  'lib/plugins/app.dart#_networkChanges',
 };
 
 final _declaration = RegExp(
@@ -49,10 +52,9 @@ bool _isGenerated(String path) {
 
 void main() {
   test('every self-created disposable field is released in the same file', () {
-    final root = Directory('lib');
     final offenders = <String>[];
 
-    for (final entity in root.listSync(recursive: true)) {
+    for (final entity in sourceEntities()) {
       if (entity is! File || !entity.path.endsWith('.dart')) {
         continue;
       }

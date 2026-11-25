@@ -49,6 +49,85 @@ final class SafeModeProvider extends $FunctionalProvider<bool, bool, bool>
 
 String _$safeModeHash() => r'3ef07344f5a8dbf775ccf0a4861c0317ec8b2266';
 
+@ProviderFor(packageIconSource)
+final packageIconSourceProvider = PackageIconSourceProvider._();
+
+final class PackageIconSourceProvider
+    extends $FunctionalProvider<App?, App?, App?>
+    with $Provider<App?> {
+  PackageIconSourceProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'packageIconSourceProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$packageIconSourceHash();
+
+  @$internal
+  @override
+  $ProviderElement<App?> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  App? create(Ref ref) {
+    return packageIconSource(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(App? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<App?>(value),
+    );
+  }
+}
+
+String _$packageIconSourceHash() => r'b9b233f207f9dce3809537c3458e7a70192dd52d';
+
+/// Android: su is there and granted FlClash's last request.
+
+@ProviderFor(rootAccess)
+final rootAccessProvider = RootAccessProvider._();
+
+/// Android: su is there and granted FlClash's last request.
+
+final class RootAccessProvider
+    extends $FunctionalProvider<AsyncValue<bool>, bool, FutureOr<bool>>
+    with $FutureModifier<bool>, $FutureProvider<bool> {
+  /// Android: su is there and granted FlClash's last request.
+  RootAccessProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'rootAccessProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$rootAccessHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<bool> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<bool> create(Ref ref) {
+    return rootAccess(ref);
+  }
+}
+
+String _$rootAccessHash() => r'59f43852dbede9ebe3301b885d63cd0a3961126d';
+
 @ProviderFor(AuthorizedTunEnable)
 final authorizedTunEnableProvider = AuthorizedTunEnableProvider._();
 
@@ -95,6 +174,170 @@ abstract class _$AuthorizedTunEnable extends $Notifier<TunAuthorizationState> {
             as $ClassProviderElement<
               AnyNotifier<TunAuthorizationState, TunAuthorizationState>,
               TunAuthorizationState,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
+@ProviderFor(UpdateDownloadState)
+final updateDownloadStateProvider = UpdateDownloadStateProvider._();
+
+final class UpdateDownloadStateProvider
+    extends $NotifierProvider<UpdateDownloadState, UpdateDownload?> {
+  UpdateDownloadStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'updateDownloadStateProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$updateDownloadStateHash();
+
+  @$internal
+  @override
+  UpdateDownloadState create() => UpdateDownloadState();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(UpdateDownload? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<UpdateDownload?>(value),
+    );
+  }
+}
+
+String _$updateDownloadStateHash() =>
+    r'31a28cbffa1d4a3c35a478262ef61c10271048c9';
+
+abstract class _$UpdateDownloadState extends $Notifier<UpdateDownload?> {
+  UpdateDownload? build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<UpdateDownload?, UpdateDownload?>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<UpdateDownload?, UpdateDownload?>,
+              UpdateDownload?,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
+@ProviderFor(CoreCapabilitiesState)
+final coreCapabilitiesStateProvider = CoreCapabilitiesStateProvider._();
+
+final class CoreCapabilitiesStateProvider
+    extends $NotifierProvider<CoreCapabilitiesState, CoreCapabilities> {
+  CoreCapabilitiesStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'coreCapabilitiesStateProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$coreCapabilitiesStateHash();
+
+  @$internal
+  @override
+  CoreCapabilitiesState create() => CoreCapabilitiesState();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(CoreCapabilities value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<CoreCapabilities>(value),
+    );
+  }
+}
+
+String _$coreCapabilitiesStateHash() =>
+    r'd1e986c16b1dac28ab6480019ee33108da0ef185';
+
+abstract class _$CoreCapabilitiesState extends $Notifier<CoreCapabilities> {
+  CoreCapabilities build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<CoreCapabilities, CoreCapabilities>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<CoreCapabilities, CoreCapabilities>,
+              CoreCapabilities,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
+/// The warnings of the config the Core last set up; they end with the Core.
+
+@ProviderFor(CoreStopReason)
+final coreStopReasonProvider = CoreStopReasonProvider._();
+
+/// The warnings of the config the Core last set up; they end with the Core.
+final class CoreStopReasonProvider
+    extends $NotifierProvider<CoreStopReason, String?> {
+  /// The warnings of the config the Core last set up; they end with the Core.
+  CoreStopReasonProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'coreStopReasonProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$coreStopReasonHash();
+
+  @$internal
+  @override
+  CoreStopReason create() => CoreStopReason();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(String? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<String?>(value),
+    );
+  }
+}
+
+String _$coreStopReasonHash() => r'ba8ddb362ef3e025c5f052a68e896a0e728f9458';
+
+/// The warnings of the config the Core last set up; they end with the Core.
+
+abstract class _$CoreStopReason extends $Notifier<String?> {
+  String? build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<String?, String?>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<String?, String?>,
+              String?,
               Object?,
               Object?
             >;

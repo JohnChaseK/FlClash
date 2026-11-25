@@ -16,6 +16,7 @@ const defaultDns = Dns();
 const defaultNtp = Ntp();
 const defaultSniffer = Sniffer();
 const defaultProfileTun = ProfileTun();
+const defaultMitm = Mitm();
 
 /// What a profile that brings no DNS section of its own is given, so the core
 /// always resolves. The user's own override set starts empty.
@@ -461,6 +462,22 @@ extension CustomProxyExt on CustomProxy {
         ProxyField.username,
         ProxyField.password,
         ProxyField.uuid,
+      }.contains(field))
+        field,
+  ];
+
+  /// What tells one account on a server from another, in a type that has no
+  /// [credentials] the key it signs in with.
+  List<ProxyField> get accountKeys => [
+    for (final field in fields)
+      if (const {
+        ProxyField.username,
+        ProxyField.password,
+        ProxyField.uuid,
+        ProxyField.psk,
+        ProxyField.key,
+        ProxyField.privateKey,
+        ProxyField.authStr,
       }.contains(field))
         field,
   ];
@@ -1150,6 +1167,21 @@ abstract class Tun with _$Tun {
   }
 }
 
+bool isUsableMixedPort(int port) => port > 0 && port <= 65535;
+
+Object? unusableMixedPort(Object? patchJson) {
+  if (patchJson is! Map) return null;
+  final raw = patchJson['mixed-port'];
+  return raw != null && _mixedPortFromJson(raw) != raw ? raw : null;
+}
+
+int _mixedPortFromJson(Object? value) => switch (value) {
+  final num port
+      when port == port.truncate() && isUsableMixedPort(port.toInt()) =>
+    port.toInt(),
+  _ => defaultMixedPort,
+};
+
 int _mtuFromJson(int value) =>
     value > 0 ? value.clamp(minTunMtu, maxTunMtu) : defaultTunMtu;
 
@@ -1323,18 +1355,8 @@ extension DnsOverrideExt on Dns {
     return json;
   }
 
-  /// [keepEmpty] writes emptied keys, but the core refuses an empty nameserver.
-  Map<String, Object?> overrideJson(
-    Set<DnsOverrideKey> keys, {
-    bool keepEmpty = false,
-  }) => _overrideJson(
-    _json,
-    DnsOverrideKey.values,
-    keys,
-    keepEmpty: keepEmpty
-        ? keys.difference({DnsOverrideKey.nameserver})
-        : const <DnsOverrideKey>{},
-  );
+  Map<String, Object?> overrideJson(Set<DnsOverrideKey> keys) =>
+      _overrideJson(_json, DnsOverrideKey.values, keys);
 
   String overrideYaml(Set<DnsOverrideKey> keys) =>
       yaml.encode(overrideJson(keys));
@@ -1366,12 +1388,13 @@ Object? _plainYaml(Object? node) => switch (node) {
   _ => node,
 };
 
+/// A picked key is written as it is, empty included: an emptied entry clears
+/// the profile's value, and one the core refuses empty fails the config there.
 Map<String, Object?> _overrideJson<K extends OverrideKey>(
   Map<String, Object?> json,
   List<K> values,
-  Set<K> keys, {
-  Set<K> keepEmpty = const {},
-}) {
+  Set<K> keys,
+) {
   final result = <String, Object?>{};
   for (final key in values) {
     if (!keys.contains(key)) {
@@ -1381,9 +1404,6 @@ Map<String, Object?> _overrideJson<K extends OverrideKey>(
     final value = parent == null
         ? json[key.path]
         : (json[parent] as Map)[key.field];
-    if (_isUnset(value) && !keepEmpty.contains(key)) {
-      continue;
-    }
     if (parent == null) {
       result[key.path] = value;
       continue;
@@ -1395,13 +1415,6 @@ Map<String, Object?> _overrideJson<K extends OverrideKey>(
   }
   return result;
 }
-
-bool _isUnset(Object? value) => switch (value) {
-  String() => value.isEmpty,
-  Iterable() => value.isEmpty,
-  Map() => value.isEmpty,
-  _ => false,
-};
 
 /// Reads an edited override document into [json] and returns the keys it
 /// names, which become the override set, or null for an empty document.
@@ -1795,6 +1808,7 @@ abstract class Rule with _$Rule {
     @Default(false) bool noResolve,
     @Default(false) bool src,
     String? order,
+    @Default(false) bool customExit,
   }) = _Rule;
 
   factory Rule.init() {
@@ -1932,6 +1946,11 @@ extension RuleExt on Rule {
 
   List<String> get searchFields => [ruleAction.name, rawValue];
 }
+
+Set<String> customExitsOf(Iterable<Rule> rules) => {
+  for (final rule in rules)
+    if (rule.customExit && rule.ruleTarget != null) rule.ruleTarget!,
+};
 
 final class RuleLineException implements Exception {
   final int line;
@@ -2113,7 +2132,9 @@ Map<String, Object?> _withLegacyGeneralOverrideKeys(Map<String, Object?> json) {
 @freezed
 abstract class PatchClashConfig with _$PatchClashConfig {
   const factory PatchClashConfig({
-    @Default(defaultMixedPort) @JsonKey(name: 'mixed-port') int mixedPort,
+    @Default(defaultMixedPort)
+    @JsonKey(name: 'mixed-port', fromJson: _mixedPortFromJson)
+    int mixedPort,
     @Default(0) @JsonKey(name: 'socks-port') int socksPort,
     @Default(0) @JsonKey(name: 'port') int port,
     @Default(0) @JsonKey(name: 'redir-port') int redirPort,
@@ -2122,8 +2143,11 @@ abstract class PatchClashConfig with _$PatchClashConfig {
     @Default(false) @JsonKey(name: 'allow-lan') bool allowLan,
     @Default(LogLevel.error) @JsonKey(name: 'log-level') LogLevel logLevel,
     @Default(false) bool ipv6,
-    @Default(FindProcessMode.off)
-    @JsonKey(name: 'find-process-mode', unknownEnumValue: FindProcessMode.off)
+    @Default(FindProcessMode.strict)
+    @JsonKey(
+      name: 'find-process-mode',
+      unknownEnumValue: FindProcessMode.strict,
+    )
     FindProcessMode findProcessMode,
     @Default(InterfaceNameMode.clear)
     @JsonKey(
@@ -2167,7 +2191,7 @@ abstract class PatchClashConfig with _$PatchClashConfig {
     ExternalControllerStatus externalController,
     @Default('') String secret,
     @Default({}) Map<String, String> hosts,
-    @Default(false) @JsonKey(name: 'geo-auto-update') bool geoAutoUpdate,
+    @Default(true) @JsonKey(name: 'geo-auto-update') bool geoAutoUpdate,
     @Default(24) @JsonKey(name: 'geo-update-interval') int geoUpdateInterval,
     @Default(defaultTestUrl) @JsonKey(name: 'test-url') String testUrl,
     @Default({})
@@ -2176,6 +2200,7 @@ abstract class PatchClashConfig with _$PatchClashConfig {
       fromJson: _generalOverrideKeysFromJson,
     )
     Set<GeneralOverrideKey> generalOverrideKeys,
+    @Default(defaultMitm) Mitm mitm,
   }) = _PatchClashConfig;
 
   factory PatchClashConfig.fromJson(Map<String, Object?> json) =>
@@ -2193,6 +2218,153 @@ abstract class PatchClashConfig with _$PatchClashConfig {
   }
 }
 
+/// Written over every profile's `mitm` section, so only the app turns it on.
+@freezed
+abstract class Mitm with _$Mitm {
+  const factory Mitm({
+    @Default(false) bool enable,
+    @Default([]) List<String> hostname,
+    @Default(false)
+    @JsonKey(name: 'skip-server-cert-verify')
+    bool skipServerCertVerify,
+    @Default(true) @JsonKey(name: 'auto-quic-block') bool autoQuicBlock,
+    @Default(false) bool h2,
+    @Default(false) @JsonKey(name: 'decrypt-untrusted') bool decryptUntrusted,
+    @JsonKey(name: 'trusted-fingerprint') String? trustedFingerprint,
+    @Default(false) bool capture,
+    @JsonKey(name: 'capture-entries') int? captureEntries,
+  }) = _Mitm;
+
+  factory Mitm.fromJson(Map<String, Object?> json) => _$MitmFromJson(json);
+}
+
+/// A body rewrite holds about ten times the body, a script on JSON twenty.
+const _desktopMitmLimits = {
+  'max-body-size': 4 << 20,
+  'body-buffer': 32 << 20,
+  'certificate-cache': 1024,
+  'script-concurrency': 4,
+  'script-memory': 256 << 20,
+  'capture-entries': 2000,
+  'capture-bytes': 64 << 20,
+};
+
+const _androidMitmLimits = {
+  'max-body-size': 2 << 20,
+  'body-buffer': 8 << 20,
+  'certificate-cache': 256,
+  'max-sessions': 256,
+  'script-concurrency': 2,
+  'script-memory': 64 << 20,
+  'capture-entries': 500,
+  'capture-bytes': 16 << 20,
+};
+
+/// Past the top option the byte limit drops records before the count does.
+const _desktopMitmCaptureOptions = [500, 1000, 2000, 5000, 10000, 20000];
+const _androidMitmCaptureOptions = [200, 500, 1000, 2000, 5000];
+
+List<int> mitmCaptureOptions({required bool isAndroid}) =>
+    isAndroid ? _androidMitmCaptureOptions : _desktopMitmCaptureOptions;
+
+Map<String, Object> _mitmLimits({required bool isAndroid}) =>
+    isAndroid ? _androidMitmLimits : _desktopMitmLimits;
+
+int mitmCaptureBytes({required bool isAndroid}) =>
+    _mitmLimits(isAndroid: isAndroid)['capture-bytes']! as int;
+
+int mitmMaxBodySize({required bool isAndroid}) =>
+    _mitmLimits(isAndroid: isAndroid)['max-body-size']! as int;
+
+extension MitmExt on Mitm {
+  int captureLimit({required bool isAndroid}) =>
+      captureEntries ??
+      _mitmLimits(isAndroid: isAndroid)['capture-entries']! as int;
+
+  /// Ahead of the list, since the first match decides.
+  Mitm decryptingHost(String host) => copyWith(
+    hostname: [
+      host,
+      for (final line in hostname)
+        if (line != host && line != '-$host') line,
+    ],
+  );
+
+  /// Ahead of the list, since the first match decides.
+  Mitm excludingHost(String host) => copyWith(
+    hostname: [
+      '-$host',
+      for (final line in hostname)
+        if (line != host && line != '-$host') line,
+    ],
+  );
+
+  /// The hostnames come from [rules] alone, which the user's own lead.
+  Map<String, Object?> coreJson(MitmRules rules) {
+    final json = toJson()
+      ..remove('hostname')
+      ..remove('decrypt-untrusted')
+      ..remove('trusted-fingerprint')
+      ..remove('capture')
+      ..remove('capture-entries');
+    return {
+      ...json,
+      ...rules.toJson(),
+      'h2': h2 || rules.h2,
+      'decrypt-tls': decryptUntrusted || trustedFingerprint != null,
+      'ca-fingerprint': decryptUntrusted ? '' : trustedFingerprint ?? '',
+      'limits': {
+        ..._mitmLimits(isAndroid: system.isAndroid),
+        'capture-entries': ?captureEntries,
+      },
+    };
+  }
+}
+
+class MitmRules {
+  const MitmRules({
+    this.hostname = const [],
+    this.urlRewrite = const [],
+    this.headerRewrite = const [],
+    this.bodyRewrite = const [],
+    this.mapLocal = const [],
+    this.requestBodyMock = const [],
+    this.clientSourceAddress = const [],
+    this.skipVerifyHostname = const [],
+    this.script = const [],
+    this.h2 = false,
+  });
+
+  final List<String> hostname;
+  final List<String> urlRewrite;
+  final List<String> headerRewrite;
+  final List<String> bodyRewrite;
+  final List<String> mapLocal;
+  final List<String> requestBodyMock;
+  final List<String> clientSourceAddress;
+  final List<String> skipVerifyHostname;
+  final List<String> script;
+
+  /// A module that turns HTTP/2 on, which only adds to the user's choice.
+  final bool h2;
+
+  List<String> linesOf(MitmList list) => switch (list) {
+    MitmList.hostname => hostname,
+    MitmList.urlRewrite => urlRewrite,
+    MitmList.headerRewrite => headerRewrite,
+    MitmList.bodyRewrite => bodyRewrite,
+    MitmList.mapLocal => mapLocal,
+    MitmList.requestBodyMock => requestBodyMock,
+    MitmList.clientSourceAddress => clientSourceAddress,
+    MitmList.skipVerifyHostname => skipVerifyHostname,
+    MitmList.script => script,
+  };
+
+  Map<String, Object?> toJson() => {
+    for (final list in MitmList.values) list.key: linesOf(list),
+  };
+}
+
 extension PatchClashConfigExt on PatchClashConfig {
   T? _picked<T>(GeneralOverrideKey key, T value) =>
       generalOverrideKeys.contains(key) ? value : null;
@@ -2205,7 +2377,7 @@ extension PatchClashConfigExt on PatchClashConfig {
 
   UpdateParams toUpdateParams({
     required List<String> authentication,
-    required bool skipCertVerify,
+    required CoreOptions options,
   }) {
     return UpdateParams(
       tun: tun,
@@ -2223,7 +2395,7 @@ extension PatchClashConfigExt on PatchClashConfig {
       geoAutoUpdate: geoAutoUpdate,
       geoUpdateInterval: geoUpdateInterval,
       geoXUrl: geoXUrl.raw,
-      skipCertVerify: skipCertVerify,
+      options: options,
     );
   }
 
@@ -2244,6 +2416,8 @@ extension PatchClashConfigExt on PatchClashConfig {
     geoAutoUpdate: defaultClashConfig.geoAutoUpdate,
     geoUpdateInterval: defaultClashConfig.geoUpdateInterval,
     geoXUrl: defaultClashConfig.geoXUrl,
+    testUrl: defaultClashConfig.testUrl,
+    mitm: mitm.copyWith(capture: defaultClashConfig.mitm.capture),
   );
 
   PatchClashConfig ensureControllerSecret() {

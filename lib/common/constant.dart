@@ -7,7 +7,7 @@ import 'package:collection/collection.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/widgets.dart';
 
 const appName = 'FlClash';
 const appHelperService = 'FlClashHelperService';
@@ -22,6 +22,7 @@ const helperPortKey =
     'SYSTEM\\CurrentControlSet\\Services\\$appHelperService\\Runtime';
 const helperPortValue = 'Port';
 const helperSocketPath = '/run/flclash/helper.sock';
+const helperUnitPath = '/etc/systemd/system/flclash-helper.service';
 const helperProtocolVersionHeader = 'x-flclash-helper-protocol';
 final helperProtocolVersion = Platform.isWindows ? '8' : '6';
 const maxTextScale = 1.4;
@@ -30,6 +31,11 @@ const minTextScale = 0.8;
 const watchExecution = false;
 
 const safeModeBuild = bool.fromEnvironment('SAFE_MODE');
+
+/// Gates what only the Concord core of the rs line can serve, such as MITM.
+/// The rs line strips each check with `tool/strip_rs_feature.dart` instead of
+/// turning it on, so a check must take a form that tool reads.
+const rsFeature = false;
 
 const disclaimerVersion = 1;
 
@@ -61,18 +67,23 @@ const delayTimedOutValue = -1;
 
 const probeTimeoutDuration = Duration(seconds: 10);
 
-/// Outlasts the Core's one-second pick poll (`routePollInterval` in
-/// core/route.go), so groups re-picking on neighbouring polls cost one route
-/// check.
+/// The window a checked move opens, whose later moves are checked together
+/// when it ends. Outlasts the Core's one-second pick poll (`routePollInterval`
+/// in core/route.go), so groups re-picking on neighbouring polls cost one
+/// route check more.
 const probeSettleDuration = Duration(milliseconds: 1500);
 
 /// Spans a config load, whose providers, rule sets and url-test picks land
 /// over a few seconds, so an exit moving with each costs one probe more.
 const probeThrottleDuration = Duration(seconds: 5);
 
-/// Covers a start, which moves the route three times within about 150 ms
-/// (`proxied`, then the listeners, then the Android TUN).
+/// Covers a burst of resets: a network switch reports more than once, and a
+/// launch applies the config and starts the listeners back to back.
 const probeMoveSettleDuration = Duration(milliseconds: 300);
+
+/// How long after a failure that came back early a watched probe target is
+/// asked the once more that confirms it.
+const probeConfirmDelay = Duration(seconds: 1);
 
 const downloadTimeoutDuration = Duration(seconds: 20);
 
@@ -84,8 +95,6 @@ const outboundIpTimeoutDuration = Duration(seconds: 6);
 /// unresponsive. [budgetFactor] covers methods that spend it more than once.
 Duration coreGuardFor(int timeout, {int budgetFactor = 2}) =>
     Duration(milliseconds: timeout * budgetFactor) + const Duration(seconds: 5);
-
-Duration probeGuardDuration(ProbeParams params) => coreGuardFor(params.timeout);
 
 /// Kept in step with serviceSweepBudgetFactor in core/service_check.go.
 const serviceSweepBudgetFactor = 6;
@@ -114,13 +123,17 @@ const providersDirectoryName = 'providers';
 const proxiesProviderDirectoryName = 'proxies';
 const rulesProviderDirectoryName = 'rules';
 
+/// The Core reads the CA here, and map-local files only from [mitmResourcesDirectoryName].
+const mitmDirectoryName = 'mitm';
+const mitmModulesDirectoryName = 'modules';
+const mitmResourcesDirectoryName = 'resources';
+
 const localhost = '127.0.0.1';
 const clashConfigKey = 'clash_config';
 const configKey = 'config';
 const systemDnsRecordKey = 'system_dns_record';
 const bootRecordKey = 'boot_record';
 const appliedConfigMd5Key = 'applied_config_md5';
-const defaultSystemDnsFallback = '223.5.5.5';
 const repository = 'chen08209/FlClash';
 const maxMobileWidth = 600;
 const maxLaptopWidth = 840;
@@ -149,6 +162,7 @@ const stringListEquality = ListEquality<String>();
 const intListEquality = ListEquality<int>();
 const ruleListEquality = ListEquality<Rule>();
 const scriptListEquality = ListEquality<Script>();
+const mitmModuleListEquality = ListEquality<MitmModule>();
 const profileListEquality = ListEquality<Profile>();
 const proxyGroupsEquality = ListEquality<ProxyGroup>();
 const customProxiesEquality = ListEquality<CustomProxy>();

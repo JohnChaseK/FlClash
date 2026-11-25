@@ -119,7 +119,7 @@ final class ProfilesProvider
   }
 }
 
-String _$profilesHash() => r'0f5713b369e9c0338cfda7d721d44abb91efb027';
+String _$profilesHash() => r'0f7e5be5f04f855ed2ad3dc969e95b82eed7c2a5';
 
 abstract class _$Profiles extends $Notifier<List<Profile>> {
   List<Profile> build();
@@ -176,6 +176,51 @@ abstract class _$Scripts extends $StreamNotifier<List<Script>> {
             as $ClassProviderElement<
               AnyNotifier<AsyncValue<List<Script>>, List<Script>>,
               AsyncValue<List<Script>>,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
+@ProviderFor(MitmModules)
+final mitmModulesProvider = MitmModulesProvider._();
+
+final class MitmModulesProvider
+    extends $StreamNotifierProvider<MitmModules, List<MitmModule>> {
+  MitmModulesProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'mitmModulesProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$mitmModulesHash();
+
+  @$internal
+  @override
+  MitmModules create() => MitmModules();
+}
+
+String _$mitmModulesHash() => r'f7ff19a7e8b913c8987f0176eadc80222882e633';
+
+abstract class _$MitmModules extends $StreamNotifier<List<MitmModule>> {
+  Stream<List<MitmModule>> build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref =
+        this.ref as $Ref<AsyncValue<List<MitmModule>>, List<MitmModule>>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<AsyncValue<List<MitmModule>>, List<MitmModule>>,
+              AsyncValue<List<MitmModule>>,
               Object?,
               Object?
             >;

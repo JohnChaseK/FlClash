@@ -8,6 +8,9 @@ import 'package:flutter/foundation.dart';
 const directOutbound = 'DIRECT';
 const routedOutbound = '';
 
+/// `probeErrorTimeout` in core/probe.go.
+const probeErrorTimeout = 'timeout';
+
 /// [id] must match the checker name registered in core/service_check.go.
 enum ServiceTarget {
   google('google', 'Google', 'google'),
@@ -173,7 +176,7 @@ final Map<String, IpInfo Function(String)> ipInfoSources = {
 };
 
 /// Raw so the route stamp survives; [parseOutboundIp] reads the address.
-Future<OutboundIpResult?> lookupOutboundIp(
+Future<OutboundIpResult> lookupOutboundIp(
   CoreController core,
   String proxyName, {
   Duration timeout = outboundIpTimeoutDuration,
@@ -187,8 +190,8 @@ Future<OutboundIpResult?> lookupOutboundIp(
   );
 }
 
-IpInfo? parseOutboundIp(OutboundIpResult? result) {
-  if (result == null || result.error != null || result.body.isEmpty) {
+IpInfo? parseOutboundIp(OutboundIpResult result) {
+  if (result.error != null || result.body.isEmpty) {
     return null;
   }
   final parse = ipInfoSources[result.url];

@@ -39,7 +39,7 @@ class _IOSManagerState extends ConsumerState<IOSManager> with ServiceListener {
   }
 
   @override
-  void onServiceStopped() {
+  void onServiceStopped([ServiceStartFailure? failure]) {
     unawaited(ref.read(setupActionProvider.notifier).setRunning(false));
   }
 

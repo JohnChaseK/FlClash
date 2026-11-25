@@ -1,12 +1,13 @@
+import 'package:fl_clash/common/app_localizations.dart';
 import 'package:fl_clash/features/form/form.dart';
-import 'package:fl_clash/l10n/l10n.dart';
 import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/widgets.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers/test_app.dart';
+import 'package:prism_ui/prism_ui.dart';
 
 final _proxyTypes = {
   for (var i = 1; i <= sheetSearchMinItemCount; i++)
@@ -95,7 +96,7 @@ void main() {
       ),
     );
     globalState.navigatorKey.currentState!.push(
-      MaterialPageRoute<void>(
+      HostPageRoute<void>(
         builder: (_) => SheetProvider(
           type: SheetType.bottomSheet,
           child: SelectionSheet<String>(
@@ -141,10 +142,10 @@ void main() {
     await tester.enterText(find.byType(TextField), 'missing');
     await tester.pumpAndSettle();
 
-    expect(find.text(AppLocalizations.current.noSearchResults), findsOneWidget);
+    expect(find.text(currentAppLocalizations.noSearchResults), findsOneWidget);
     expect(find.byType(SearchField), findsOneWidget);
 
-    await tester.tap(find.byTooltip(AppLocalizations.current.clearSearch));
+    await tester.tap(find.byTooltip(currentAppLocalizations.clearSearch));
     await tester.pumpAndSettle();
     expect(find.text('Node 1'), findsOneWidget);
   });

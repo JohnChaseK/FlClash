@@ -1,11 +1,11 @@
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
-import 'package:fl_clash/ui/color.dart';
 import 'package:flutter/services.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/widgets.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import 'models.dart';
+import 'package:prism_ui/prism_ui.dart';
 
 part 'generated/config.freezed.dart';
 part 'generated/config.g.dart';
@@ -29,6 +29,24 @@ const defaultBypassDomain = [
   '172.31.*',
   '192.168.*',
 ];
+
+/// WinINet's entry for every host without a dot; the other platforms leave it
+/// out when they write the list.
+const windowsLocalBypass = '<local>';
+
+/// The field default keeps the shared list because it must be const.
+final List<String> platformDefaultBypassDomain = system.isWindows
+    ? const [...defaultBypassDomain, windowsLocalBypass]
+    : defaultBypassDomain;
+
+/// `%mixed-port%` is replaced with the mixed port when the script is served.
+const defaultPacScript = '''function FindProxyForURL(url, host) {
+  if (isPlainHostName(host)) {
+    return "DIRECT";
+  }
+  return "PROXY 127.0.0.1:%mixed-port%; SOCKS5 127.0.0.1:%mixed-port%; DIRECT";
+}
+''';
 
 const defaultUserAgents = ['clash-verge/v2.4.2', 'ClashforWindows/0.19.23'];
 
@@ -248,6 +266,7 @@ abstract class AppSettingProps with _$AppSettingProps {
     @Default(false) bool autoRun,
     @Default(false) bool openLogs,
     @Default(true) bool closeConnections,
+    @Default(RequestFeed.live) RequestFeed requestFeed,
     @Default(defaultDelayTestTimeout) int delayTestTimeout,
     @Default(TabAnimation.fade)
     @JsonKey(readValue: _readTabAnimation)
@@ -275,6 +294,7 @@ abstract class AppSettingProps with _$AppSettingProps {
     @Default([]) List<String> serviceOrder,
     @Default([]) List<String> disabledServices,
     @Default({}) Map<String, Map<String, double>> tableColumnWidths,
+    @Default({}) Map<String, String> recordGroupings,
   }) = _AppSettingProps;
 
   factory AppSettingProps.fromJson(Map<String, Object?> json) =>
@@ -384,8 +404,9 @@ abstract class NetworkProps with _$NetworkProps {
   const factory NetworkProps({
     @Default(true) bool systemProxy,
     @Default(defaultBypassDomain) List<String> bypassDomain,
+    @Default(false) bool pacMode,
+    @Default(defaultPacScript) String pacScript,
     @Default(true) bool bypassPrivateRoute,
-    @Default(true) bool autoSetSystemDns,
     @Default(false) bool appendSystemDns,
     @Default(defaultAuthenticationProps) AuthenticationProps authentication,
   }) = _NetworkProps;
@@ -536,6 +557,7 @@ abstract class Config with _$Config {
         appSettingProps: AppSettingProps(
           dashboardWidgets: platformDefaultDashboardWidgets,
         ),
+        networkProps: NetworkProps(bypassDomain: platformDefaultBypassDomain),
       );
     }
     return Config.fromJson(json);

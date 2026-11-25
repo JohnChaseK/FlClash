@@ -10,8 +10,15 @@ class SystemAction extends _$SystemAction {
   void build() {}
 
   Future<List<Package>> getPackages() async {
-    ref.read(packagesProvider.notifier).value = await app?.getPackages() ?? [];
+    final packages = await app?.getPackages() ?? [];
+    if (!listEquals(packages, ref.read(packagesProvider))) {
+      ref.read(packagesProvider.notifier).value = packages;
+    }
     return ref.read(packagesProvider);
+  }
+
+  Future<List<String>> getChinaPackageNames() async {
+    return await app?.getChinaPackageNames() ?? [];
   }
 
   Future<bool> isInstalledAppsPermissionGranted() async {
@@ -50,7 +57,6 @@ class SystemAction extends _$SystemAction {
     await Future.wait([
       ?saveOperation,
       bootGuard.markClosed(),
-      if (systemDnsCoordinator != null) systemDnsCoordinator!.shutdown(),
       ?systemProxyQueue?.close(),
     ]);
   }
