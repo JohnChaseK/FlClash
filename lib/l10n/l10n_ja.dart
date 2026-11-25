@@ -2139,6 +2139,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get onDemand => 'オンデマンド';
 
   @override
+  String get onDemandDesc => 'オンデマンドは、除外した Wi-Fi に接続している間プロキシを一時停止します。';
+
+  @override
   String get locationPermissionDeniedMessage =>
       '位置情報の権限が拒否されたため、現在の Wi-Fi 名を取得できません。システム設定で位置情報の権限を手動で有効にしてください。';
 

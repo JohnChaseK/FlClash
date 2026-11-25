@@ -2271,6 +2271,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get onDemand => 'À la demande';
 
   @override
+  String get onDemandDesc =>
+      'À la demande met le proxy en pause sur les Wi-Fi exclus.';
+
+  @override
   String get locationPermissionDeniedMessage =>
       'L’autorisation de localisation a été refusée ; le nom du Wi-Fi actuel ne peut donc pas être lu. Veuillez l’activer manuellement dans les réglages du système.';
 

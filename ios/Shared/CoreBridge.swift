@@ -31,13 +31,45 @@ enum CoreBridge {
 
     static func checked(_ method: String, arguments: Any? = nil) async throws {
         let response = try await call(method, arguments: arguments)
-        let object = try JSONSerialization.jsonObject(with: response) as? [String: Any]
-        if let error = object?["error"] as? [String: Any] {
-            throw TunnelError.message(error["message"] as? String ?? "Core call failed")
-        }
-        if let message = object?["result"] as? String, !message.isEmpty {
+        if let message = try failure(object(from: response, deleteSpill: true)) {
             throw TunnelError.message(message)
         }
+    }
+
+    static func shutdown() {
+        AppleShutdown()
+    }
+
+    static func object(from data: Data, deleteSpill: Bool = false) throws -> [String: Any] {
+        guard var object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw TunnelError.message("Core returned an unreadable response")
+        }
+        if let file = object["file"] as? String {
+            object = try spilledObject(file, delete: deleteSpill)
+        }
+        return object
+    }
+
+    static func failure(_ object: [String: Any]) -> String? {
+        guard let error = object["error"] as? [String: Any] else { return nil }
+        return error["message"] as? String ?? "Core call failed"
+    }
+
+    private static func spilledObject(_ path: String, delete: Bool) throws -> [String: Any] {
+        let url = URL(fileURLWithPath: path)
+        guard url.pathExtension == "json",
+            url.deletingLastPathComponent().lastPathComponent == "responses"
+        else {
+            throw TunnelError.message("Core answered with a file outside its spill directory")
+        }
+        defer {
+            if delete { try? FileManager.default.removeItem(at: url) }
+        }
+        let data = try Data(contentsOf: url)
+        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw TunnelError.message("Core wrote an unreadable spilled response")
+        }
+        return object
     }
 }
 

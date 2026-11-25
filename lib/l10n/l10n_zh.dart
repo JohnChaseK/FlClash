@@ -2116,6 +2116,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get onDemand => '按需运行';
 
   @override
+  String get onDemandDesc => '按需运行会在连上排除的 Wi-Fi 时暂停代理。';
+
+  @override
   String get locationPermissionDeniedMessage =>
       '位置权限已被拒绝，无法获取当前 Wi-Fi 名称。请前往系统设置手动开启位置权限。';
 

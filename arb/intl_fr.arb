@@ -667,6 +667,7 @@
   "excludeSsidsDesc": "Lorsque vous êtes connecté à un Wi-Fi dont le SSID est exclu, l’état d’exécution de l’app change automatiquement.",
   "ssidsEmpty": "Les SSID sont vides",
   "onDemand": "À la demande",
+  "onDemandDesc": "À la demande met le proxy en pause sur les Wi-Fi exclus.",
   "locationPermissionDeniedMessage": "L’autorisation de localisation a été refusée ; le nom du Wi-Fi actuel ne peut donc pas être lu. Veuillez l’activer manuellement dans les réglages du système.",
   "addSsid": "Ajouter un SSID",
   "editSsid": "Modifier le SSID",

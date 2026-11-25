@@ -83,13 +83,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     @MainActor
     private func shutdownCore() async {
         guard coreLease != nil else { return }
-        do {
-            try await CoreBridge.checked("shutdown")
-            coreLease = nil
-            activeOptions = nil
-        } catch {
-            NSLog("FlClash: could not shut down the tunnel Core: %@", error.localizedDescription)
-        }
+        CoreBridge.shutdown()
+        coreLease = nil
+        activeOptions = nil
     }
 
     override func handleAppMessage(_ messageData: Data, completionHandler: ((Data?) -> Void)?) {

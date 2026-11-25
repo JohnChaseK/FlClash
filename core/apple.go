@@ -73,6 +73,12 @@ func AppleSuspendEvents() {
 	}
 }
 
+// AppleShutdown releases the in-process Core. Desktop and Android stop the
+// process instead, which runs the same cleanup from the exit path.
+func AppleShutdown() {
+	handleShutdown()
+}
+
 func AppleStartTun(fd int, stack, address, dns, options string) bool {
 	appleTunMu.Lock()
 	defer appleTunMu.Unlock()

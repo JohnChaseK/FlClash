@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -16,11 +16,11 @@
 			dependencies = (
 			);
 			name = CoreFramework;
+			productName = CoreFramework;
 		};
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		D4E1421F95B2477B9812F001 /* TunnelDescriptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E1421F95B2477B9812F002 /* TunnelDescriptor.swift */; };
 		0BA0952A6A5E2A961F0CF482 /* FlClashCore.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0DCA3D8B0E638CDA39EA198E /* FlClashCore.xcframework */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
@@ -45,6 +45,7 @@
 		C196ACB56C62B809F41B41B7 /* TunnelNetworkSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20A8BCD206161574EDC839E /* TunnelNetworkSettings.swift */; };
 		C8EA0D1B49016E6AB7B7FB73 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 45A991DDFE5D806398B7100D /* Pods_Runner.framework */; };
 		CCD6BF85EFD7FCF95B55DF7B /* FlClashCore.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0DCA3D8B0E638CDA39EA198E /* FlClashCore.xcframework */; };
+		D4E1421F95B2477B9812F001 /* TunnelDescriptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E1421F95B2477B9812F002 /* TunnelDescriptor.swift */; };
 		ECA55944318F3E316CCB26AF /* CoreBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44DC971505E7A4F8F412A6F0 /* CoreBridge.swift */; };
 		F421914C0A4197B1AB2612C2 /* IOSCoreService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00EBAFAD3F93BB8D2EF5D89E /* IOSCoreService.swift */; };
 		F9FFC4060D5C928B46F30DC8 /* PacketTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 054E37D13189F6357037635C /* PacketTunnelProvider.swift */; };
@@ -106,10 +107,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		D4E1421F95B2477B9812F002 /* TunnelDescriptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelDescriptor.swift; sourceTree = "<group>"; };
 		00EBAFAD3F93BB8D2EF5D89E /* IOSCoreService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSCoreService.swift; sourceTree = "<group>"; };
 		054E37D13189F6357037635C /* PacketTunnelProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PacketTunnelProvider.swift; sourceTree = "<group>"; };
-		0DCA3D8B0E638CDA39EA198E /* FlClashCore.xcframework */ = {isa = PBXFileReference; includeInIndex = 1; name = FlClashCore.xcframework; path = Frameworks/FlClashCore.xcframework; sourceTree = "<group>"; };
+		0DCA3D8B0E638CDA39EA198E /* FlClashCore.xcframework */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = wrapper.xcframework; name = FlClashCore.xcframework; path = Frameworks/FlClashCore.xcframework; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
@@ -140,6 +140,7 @@
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		9D549DCA9E9C30DDE38FCAC2 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = System/Library/Frameworks/NetworkExtension.framework; sourceTree = SDKROOT; };
 		BE0626E128B6123E3BD0EE9F /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
+		D4E1421F95B2477B9812F002 /* TunnelDescriptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelDescriptor.swift; sourceTree = "<group>"; };
 		DBEB7A454E2176EC841075F0 /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
 		E20A8BCD206161574EDC839E /* TunnelNetworkSettings.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TunnelNetworkSettings.swift; sourceTree = "<group>"; };
 		E6917DDDD969A2A5676E5855 /* TunnelStorage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TunnelStorage.swift; sourceTree = "<group>"; };
@@ -188,7 +189,6 @@
 				D4E1421F95B2477B9812F002 /* TunnelDescriptor.swift */,
 				E20A8BCD206161574EDC839E /* TunnelNetworkSettings.swift */,
 			);
-			name = PacketTunnel;
 			path = PacketTunnel;
 			sourceTree = "<group>";
 		};
@@ -206,7 +206,6 @@
 				44DC971505E7A4F8F412A6F0 /* CoreBridge.swift */,
 				E6917DDDD969A2A5676E5855 /* TunnelStorage.swift */,
 			);
-			name = Shared;
 			path = Shared;
 			sourceTree = "<group>";
 		};
@@ -286,7 +285,6 @@
 				6899B0F718AD7534F7C1AB5F /* Pods-RunnerTests.release.xcconfig */,
 				8AD50BDA0A6F088A61856BC4 /* Pods-RunnerTests.profile.xcconfig */,
 			);
-			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
@@ -415,7 +413,7 @@
 			);
 			mainGroup = 97C146E51CF9000F007C117D;
 			packageReferences = (
-				781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "FlutterGeneratedPluginSwiftPackage" */,
+				781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage" */,
 			);
 			productRefGroup = 97C146EF1CF9000F007C117D /* Products */;
 			projectDirPath = "";
@@ -646,6 +644,7 @@
 				CODE_SIGN_ENTITLEMENTS = PacketTunnel/PacketTunnel.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLCLASH_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = TKM968Z6Z5;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -691,6 +690,7 @@
 				CODE_SIGN_ENTITLEMENTS = PacketTunnel/PacketTunnel.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLCLASH_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = TKM968Z6Z5;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -781,7 +781,7 @@
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
-				DEVELOPMENT_TEAM = BHD34642BX;
+				DEVELOPMENT_TEAM = TKM968Z6Z5;
 				ENABLE_BITCODE = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -985,7 +985,7 @@
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
-				DEVELOPMENT_TEAM = BHD34642BX;
+				DEVELOPMENT_TEAM = TKM968Z6Z5;
 				ENABLE_BITCODE = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1021,7 +1021,7 @@
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
-				DEVELOPMENT_TEAM = BHD34642BX;
+				DEVELOPMENT_TEAM = TKM968Z6Z5;
 				ENABLE_BITCODE = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1064,6 +1064,7 @@
 				CODE_SIGN_ENTITLEMENTS = PacketTunnel/PacketTunnel.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLCLASH_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = TKM968Z6Z5;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1149,7 +1150,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "FlutterGeneratedPluginSwiftPackage" */ = {
+		781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage;
 		};

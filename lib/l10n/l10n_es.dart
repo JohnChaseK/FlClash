@@ -2271,6 +2271,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onDemand => 'Bajo demanda';
 
   @override
+  String get onDemandDesc =>
+      'Bajo demanda pausa el proxy en las redes Wi-Fi excluidas.';
+
+  @override
   String get locationPermissionDeniedMessage =>
       'Se denegó el permiso de ubicación, por lo que no se puede leer el nombre de la red Wi-Fi actual. Activa el permiso de ubicación manualmente en los ajustes del sistema.';
 

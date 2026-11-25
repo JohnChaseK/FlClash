@@ -4116,6 +4116,12 @@ abstract class AppLocalizations {
   /// **'On demand'**
   String get onDemand;
 
+  /// No description provided for @onDemandDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'On demand pauses the proxy on excluded Wi-Fi.'**
+  String get onDemandDesc;
+
   /// No description provided for @locationPermissionDeniedMessage.
   ///
   /// In en, this message translates to:

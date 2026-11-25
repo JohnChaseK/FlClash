@@ -23,10 +23,10 @@ struct TunnelSnapshot: Codable {
     func restoreCore() async throws {
         try restoreConfiguration()
         try await CoreBridge.checked(
-            "initClash", arguments: JSONSerialization.jsonObject(with: initialization))
-        try await CoreBridge.checked("setupConfig", arguments: JSONSerialization.jsonObject(with: setup))
+            "core.init", arguments: JSONSerialization.jsonObject(with: initialization))
+        try await CoreBridge.checked("config.setup", arguments: JSONSerialization.jsonObject(with: setup))
         if let update {
-            try await CoreBridge.checked("updateConfig", arguments: JSONSerialization.jsonObject(with: update))
+            try await CoreBridge.checked("config.update", arguments: JSONSerialization.jsonObject(with: update))
         }
     }
 

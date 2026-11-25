@@ -667,6 +667,7 @@
   "excludeSsidsDesc": "제외 SSID의 Wi-Fi에 연결되면 앱의 실행 상태가 자동으로 전환됩니다.",
   "ssidsEmpty": "SSID가 비어 있습니다",
   "onDemand": "필요 시 실행",
+  "onDemandDesc": "필요 시 실행은 제외된 Wi-Fi에서 프록시를 일시 중지합니다.",
   "locationPermissionDeniedMessage": "위치 권한이 거부되어 현재 Wi-Fi 이름을 읽을 수 없습니다. 시스템 설정에서 위치 권한을 직접 켜 주세요.",
   "addSsid": "SSID 추가",
   "editSsid": "SSID 편집",

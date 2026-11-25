@@ -692,6 +692,7 @@
   "excludeSsidsDesc": "When connected to Wi-Fi with an excluded SSID, the app's running state switches automatically.",
   "ssidsEmpty": "SSIDs are empty",
   "onDemand": "On demand",
+  "onDemandDesc": "On demand pauses the proxy on excluded Wi-Fi.",
   "locationPermissionDeniedMessage": "Location permission was denied, so the current Wi-Fi name cannot be read. Please enable location permission manually in system settings.",
   "addSsid": "Add SSID",
   "editSsid": "Edit SSID",

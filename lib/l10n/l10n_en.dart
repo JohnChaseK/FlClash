@@ -2240,6 +2240,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onDemand => 'On demand';
 
   @override
+  String get onDemandDesc => 'On demand pauses the proxy on excluded Wi-Fi.';
+
+  @override
   String get locationPermissionDeniedMessage =>
       'Location permission was denied, so the current Wi-Fi name cannot be read. Please enable location permission manually in system settings.';
 

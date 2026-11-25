@@ -667,6 +667,7 @@
   "excludeSsidsDesc": "Al conectarte a una red Wi-Fi con un SSID excluido, el estado de ejecución de la app cambia automáticamente.",
   "ssidsEmpty": "No hay SSID",
   "onDemand": "Bajo demanda",
+  "onDemandDesc": "Bajo demanda pausa el proxy en las redes Wi-Fi excluidas.",
   "locationPermissionDeniedMessage": "Se denegó el permiso de ubicación, por lo que no se puede leer el nombre de la red Wi-Fi actual. Activa el permiso de ubicación manualmente en los ajustes del sistema.",
   "addSsid": "Añadir SSID",
   "editSsid": "Editar SSID",

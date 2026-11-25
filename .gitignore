@@ -79,3 +79,10 @@ devtools_options.yaml
 .fvm/
 .fvmrc
 /coverage/lcov.info
+ios/Frameworks/FlClashCore.xcframework/ios-arm64_x86_64-simulator/FlClashCore.framework/FlClashCore
+ios/Frameworks/FlClashCore.xcframework/ios-arm64_x86_64-simulator/FlClashCore.framework/Headers/Apple.objc.h
+ios/Frameworks/FlClashCore.xcframework/ios-arm64_x86_64-simulator/FlClashCore.framework/Headers/FlClashCore.h
+ios/Frameworks/FlClashCore.xcframework/ios-arm64_x86_64-simulator/FlClashCore.framework/Headers/ref.h
+ios/Frameworks/FlClashCore.xcframework/ios-arm64_x86_64-simulator/FlClashCore.framework/Headers/Universe.objc.h
+ios/Frameworks/FlClashCore.xcframework/ios-arm64_x86_64-simulator/FlClashCore.framework/Info.plist
+ios/Frameworks/FlClashCore.xcframework/ios-arm64_x86_64-simulator/FlClashCore.framework/Modules/module.modulemap

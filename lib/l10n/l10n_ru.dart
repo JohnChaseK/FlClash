@@ -2244,6 +2244,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get onDemand => 'По условию';
 
   @override
+  String get onDemandDesc =>
+      '«По условию» приостанавливает прокси в исключённых сетях Wi-Fi.';
+
+  @override
   String get locationPermissionDeniedMessage =>
       'Разрешение на геолокацию отклонено, поэтому невозможно получить имя текущей сети Wi-Fi. Включите разрешение на геолокацию вручную в системных настройках.';
 

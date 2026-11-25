@@ -201,7 +201,7 @@ final class IOSCoreService: NSObject {
             }
         }
         let method = (try? JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any])?["method"] as? String
-        if ["initClash", "setupConfig", "updateConfig", "changeProxy"].contains(method ?? "") {
+        if ["core.init", "config.setup", "config.update", "proxy.select"].contains(method ?? "") {
             gate.barrier(operation)
         } else {
             gate.request(operation)
@@ -211,17 +211,17 @@ final class IOSCoreService: NSObject {
     private func remember(_ raw: String, response: Data) async throws {
         guard let call = try? JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any],
             let method = call["method"] as? String,
-            ["initClash", "setupConfig", "updateConfig", "changeProxy"].contains(method),
-            let result = try? JSONSerialization.jsonObject(with: response) as? [String: Any],
+            ["core.init", "config.setup", "config.update", "proxy.select"].contains(method),
+            let result = try? CoreBridge.object(from: response),
             result["error"] == nil || result["error"] is NSNull
         else { return }
         guard let arguments = call["arguments"], !(arguments is NSNull),
             let data = try? JSONSerialization.data(withJSONObject: arguments)
         else { return }
         switch method {
-        case "initClash" where result["result"] as? Bool == true:
+        case "core.init":
             initialization = data
-        case "setupConfig" where (result["result"] as? String ?? "").isEmpty:
+        case "config.setup":
             guard let initialization, let vpnOptions else {
                 throw TunnelError.message("Missing iOS configuration recovery parameters")
             }
@@ -229,7 +229,7 @@ final class IOSCoreService: NSObject {
                 try TunnelSnapshot.capture(initialization: initialization, setup: data, options: vpnOptions)
             }.value
             try await persist(snapshot)
-        case "updateConfig" where (result["result"] as? String ?? "").isEmpty:
+        case "config.update":
             guard var snapshot = recovery, let patch = arguments as? [String: Any] else { return }
             var update = try snapshot.update.map {
                 try JSONSerialization.jsonObject(with: $0) as? [String: Any] ?? [:]
@@ -237,7 +237,7 @@ final class IOSCoreService: NSObject {
             update.merge(patch.filter { !($0.value is NSNull) }) { _, newest in newest }
             snapshot.update = try JSONSerialization.data(withJSONObject: update)
             try await persist(snapshot)
-        case "changeProxy":
+        case "proxy.select":
             guard var snapshot = recovery, let change = arguments as? [String: Any],
                 let answer = result["result"] as? [String: Any],
                 (answer["message"] as? String ?? "").isEmpty,
@@ -264,9 +264,9 @@ final class IOSCoreService: NSObject {
             return
         }
         switch call["method"] as? String {
-        case "watchRoute": routeWatch = call["arguments"] as? Bool ?? false
-        case "startLog": logsEnabled = true
-        case "stopLog": logsEnabled = false
+        case "route.watch": routeWatch = (call["arguments"] as? [String: Any])?["watch"] as? Bool ?? false
+        case "log.start": logsEnabled = true
+        case "log.stop": logsEnabled = false
         default: break
         }
     }
@@ -278,7 +278,7 @@ final class IOSCoreService: NSObject {
         }
         let options = try JSONSerialization.jsonObject(with: vpnOptions) as? [String: Any] ?? [:]
         guard options["enable"] as? Bool ?? true else {
-            try await CoreBridge.checked("startListener")
+            try await CoreBridge.checked("listener.start")
             localRunTime = Date()
             return
         }
@@ -314,7 +314,7 @@ final class IOSCoreService: NSObject {
             try await disconnect()
             if UIApplication.shared.applicationState != .background { try await restoreLocal() }
         } else if localLease != nil {
-            try await CoreBridge.checked("stopListener")
+            try await CoreBridge.checked("listener.stop")
         }
     }
 
@@ -327,9 +327,9 @@ final class IOSCoreService: NSObject {
                 try await recovery.restoreCore()
             } else if let initialization {
                 try await CoreBridge.checked(
-                    "initClash", arguments: JSONSerialization.jsonObject(with: initialization))
+                    "core.init", arguments: JSONSerialization.jsonObject(with: initialization))
             }
-            if localRunTime != nil { try await CoreBridge.checked("startListener") }
+            if localRunTime != nil { try await CoreBridge.checked("listener.start") }
             try await restoreSubscriptions()
         } catch {
             try await shutdownLocalCore()
@@ -339,7 +339,7 @@ final class IOSCoreService: NSObject {
 
     private func shutdownLocalCore() async throws {
         guard localLease != nil else { return }
-        try await CoreBridge.checked("shutdown")
+        CoreBridge.shutdown()
         localLease = nil
     }
 
@@ -460,7 +460,7 @@ final class IOSCoreService: NSObject {
 
     private func restoreSubscriptions() async throws {
         let methods: [(String, Any?)] = [
-            (logsEnabled ? "startLog" : "stopLog", nil), ("watchRoute", routeWatch),
+            (logsEnabled ? "log.start" : "log.stop", nil), ("route.watch", ["watch": routeWatch]),
         ]
         for (method, arguments) in methods {
             if remote {
@@ -531,7 +531,7 @@ final class IOSCoreService: NSObject {
                 done()
                 return
             }
-            CoreBridge.invoke("{\"method\":\"watchRoute\",\"arguments\":true}") { _ in
+            CoreBridge.invoke("{\"method\":\"route.watch\",\"arguments\":{\"watch\":true}}") { _ in
                 Task { @MainActor in done() }
             }
         }

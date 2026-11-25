@@ -2181,6 +2181,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get onDemand => '필요 시 실행';
 
   @override
+  String get onDemandDesc => '필요 시 실행은 제외된 Wi-Fi에서 프록시를 일시 중지합니다.';
+
+  @override
   String get locationPermissionDeniedMessage =>
       '위치 권한이 거부되어 현재 Wi-Fi 이름을 읽을 수 없습니다. 시스템 설정에서 위치 권한을 직접 켜 주세요.';
 

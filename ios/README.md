@@ -48,8 +48,7 @@ build with signing. The first VPN start triggers iOS's VPN permission prompt.
 
 ## Install with TrollStore
 
-On a device already running TrollStore, Apple developer certificates and
-provisioning profiles are unnecessary. iOS 16.4 is within TrollStore's supported
+On a device already running TrollStore, iOS 16.4 is within TrollStore's supported
 range and above this application's iOS 15 minimum.
 
 After building the unsigned IPA, prepare a separate package on macOS:
@@ -58,14 +57,20 @@ After building the unsigned IPA, prepare a separate package on macOS:
 ./tool/package_ios_trollstore.sh
 # Or use another unsigned build:
 ./tool/package_ios_trollstore.sh /path/to/FlClash-unsigned.ipa
+# Previous ad hoc signature, without a development certificate:
+FLCLASH_SIGN_IDENTITY=- ./tool/package_ios_trollstore.sh
 ```
 
-The output is `build/ios/ipa/FlClash-TrollStore.ipa`. The script embeds the
-Network Extension and matching App Group entitlements into both Runner and
-PacketTunnel using ad hoc signatures, with the `TROLLTROLL` identity prefix used
-by TrollStore. It reads bundle IDs and the shared group from the built bundles,
-verifies nested signatures and embedded entitlements, and preserves the input
-IPA. No signing certificate or `ldid` installation is needed on the Mac.
+The output is `build/ios/ipa/FlClash-TrollStore.ipa`. The script signs Runner,
+PacketTunnel, and nested frameworks with `FLCLASH_SIGN_IDENTITY` (a certificate
+SHA-1 or name; `-` keeps the ad hoc signature and `TROLLTROLL` prefix). The team
+identifier is that certificate's OU, or `FLCLASH_TEAM_ID` when it is set.
+Entitlements contain only `packet-tunnel-provider`, the App Group recorded in
+the built bundles, and the application and team identifiers, and they must be
+covered by the provisioning profile. An `embedded.mobileprovision` already in a
+bundle is kept; otherwise the matching profile is embedded. The script checks
+the bundle ID relationship, the shared App Group, nested signatures, and the
+embedded entitlements, and it leaves the input IPA unchanged.
 
 Open the resulting IPA in TrollStore to install it. Approve iOS's VPN permission
 prompt on the first connection. TrollStore performs the device-side signing and

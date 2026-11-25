@@ -667,6 +667,7 @@
   "excludeSsidsDesc": "连接到被排除 SSID 的 Wi-Fi 时，将会自动切换应用运行状态。",
   "ssidsEmpty": "SSIDs为空",
   "onDemand": "按需运行",
+  "onDemandDesc": "按需运行会在连上排除的 Wi-Fi 时暂停代理。",
   "locationPermissionDeniedMessage": "位置权限已被拒绝，无法获取当前 Wi-Fi 名称。请前往系统设置手动开启位置权限。",
   "addSsid": "添加SSID",
   "editSsid": "编辑SSID",

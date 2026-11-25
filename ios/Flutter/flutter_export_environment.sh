@@ -1,0 +1,15 @@
+#!/bin/sh
+# This is a generated file; do not edit or check into version control.
+export "FLUTTER_ROOT=/Users/zhuhao.zhou/fvm/versions/3.50.1"
+export "FLUTTER_APPLICATION_PATH=/Users/zhuhao.zhou/Desktop/er_project/FlClash"
+export "FLUTTER_FRAMEWORK_SWIFT_PACKAGE_PATH=/Users/zhuhao.zhou/Desktop/er_project/FlClash/ios/Flutter/ephemeral/Packages/.packages/FlutterFramework"
+export "COCOAPODS_PARALLEL_CODE_SIGN=true"
+export "FLUTTER_TARGET=lib/main.dart"
+export "FLUTTER_BUILD_DIR=build"
+export "FLUTTER_BUILD_NAME=0.9.4"
+export "FLUTTER_BUILD_NUMBER=2026110401"
+export "DART_DEFINES=RkxVVFRFUl9CVUlMRF9OQU1FPTAuOS40,RkxVVFRFUl9CVUlMRF9OVU1CRVI9MjAyNjExMDQwMQ==,RkxVVFRFUl9WRVJTSU9OPTMuNTAuMQ==,RkxVVFRFUl9DSEFOTkVMPVt1c2VyLWJyYW5jaF0=,RkxVVFRFUl9HSVRfVVJMPWh0dHBzOi8vZ2l0aHViLmNvbS9mbHV0dGVyL2ZsdXR0ZXIuZ2l0,RkxVVFRFUl9GUkFNRVdPUktfUkVWSVNJT049YWU5YjU4NmYzNA==,RkxVVFRFUl9FTkdJTkVfUkVWSVNJT049NGQzNTcxNDgwMA==,RkxVVFRFUl9EQVJUX1ZFUlNJT049My4xNC4w"
+export "DART_OBFUSCATION=false"
+export "TRACK_WIDGET_CREATION=false"
+export "TREE_SHAKE_ICONS=true"
+export "PACKAGE_CONFIG=/Users/zhuhao.zhou/Desktop/er_project/FlClash/.dart_tool/package_config.json"

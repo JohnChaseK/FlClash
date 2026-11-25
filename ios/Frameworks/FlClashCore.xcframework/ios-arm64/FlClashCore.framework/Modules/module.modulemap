@@ -1,0 +1,8 @@
+framework module "FlClashCore" {
+	header "ref.h"
+    header "Apple.objc.h"
+    header "Universe.objc.h"
+    header "FlClashCore.h"
+
+    export *
+}

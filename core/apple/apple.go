@@ -29,3 +29,7 @@ func StartTun(fd int32, stack, address, dns, options string) bool {
 func StopTun() {
 	core.AppleStopTun()
 }
+
+func Shutdown() {
+	core.AppleShutdown()
+}
